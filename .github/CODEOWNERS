@@ -1,0 +1,9 @@
+.github/ @StevenSong
+.gitignore @StevenSong
+.pre-commit-config.yaml @StevenSong
+.secrets.baseline @StevenSong
+env.yaml @StevenSong
+requirements.txt @StevenSong
+requirements-dev.txt @StevenSong
+LICENSE @StevenSong
+README.md @StevenSong
