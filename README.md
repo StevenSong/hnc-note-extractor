@@ -1,1 +1,1 @@
-# hnc-progress-note-extractor
+# Head and Neck Cancer Bank: Progress Note Metadata Extractor
