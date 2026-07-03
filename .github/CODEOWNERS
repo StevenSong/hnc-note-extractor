@@ -7,3 +7,4 @@ requirements.txt @StevenSong
 requirements-dev.txt @StevenSong
 LICENSE @StevenSong
 README.md @StevenSong
+prompts/ @StevenSong
