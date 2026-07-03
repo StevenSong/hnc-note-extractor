@@ -48,7 +48,11 @@ messages:
           longstanding and still in effect, e.g. "known").
         - historical = Framed as a prior or resolved state being referenced
           ("history of", "s/p", "in <year>").
-        - unknown = No temporal framing available.
+        - unknown = The note gives no cue to place the value as either current
+          or historical; it is neither marked active/known/newly-established nor
+          marked as prior/resolved. Note this is distinct from merely lacking a
+          timing phrase: a value framed as active still has frame: current even
+          when expression is null.
       * expression: Report the verbatim phrase, if any, that times the value. Be
         sure to include the verbatim phrase in the extracted evidence. Do not
         normalize the time expression to any specific datetime format. Leave the

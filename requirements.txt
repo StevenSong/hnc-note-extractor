@@ -1,5 +1,6 @@
 numpy
 omegaconf
+openai
 pandas
 scikit-learn
 scipy

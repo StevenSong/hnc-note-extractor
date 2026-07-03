@@ -33,10 +33,19 @@ field_instruction: |
 
   Do NOT infer the primary from indirect clues (a chemotherapy regimen, a
   tumor marker, a specialist's name). If the origin is not stated, abstain.
+  A negated or ruled-out site (e.g. "gastric primary excluded", "not a
+  breast primary") is not a primary-site value: emit nothing for it rather
+  than reporting the negated site.
 
   If the note describes TWO OR MORE distinct primary cancers (e.g. a
   second primary malignancy, or a synchronous tumor), report EACH as its
   own finding with its own evidence. Do not collapse them.
+
+  A DIFFERENTIAL between two or more NAMED candidate primary sites for a
+  single tumor (e.g. "gastric vs pancreatic primary") is reported as one
+  finding per candidate site, each with assertion = uncertain, each citing
+  the shared span. This differs from the distinct co-existing primaries above,
+  which are each affirmed.
 
   Distinguish a confirmed primary from a differential. A phrase like
   "likely lung primary vs. metastatic disease of unknown origin" is
@@ -67,20 +76,20 @@ field_examples:
             frame: current
             expression: null
           value: "pancreas"
-      summary: TODO
+      summary: "Single primary named directly by the diagnosis; no competing or metastatic sites are mentioned, so there is nothing to exclude."
 
   # ---- the core trap: metastatic site must NOT be reported as primary ----
   - note_excerpt: "Known pancreatic cancer with new metastatic lesions in the liver and right lung. Discussed progression today."
     field_extractions:
       extractions:
         - evidence: ["Known pancreatic cancer"]
-          justification: Pancreas is the stated primary. Liver and lung are framed as metastatic ('metastatic lesions in') and are excluded from this field.
+          justification: "Pancreas is the stated primary, named directly. 'Known' times the diagnosis as pre-existing but still active, so frame is current, not historical."
           assertion: affirmed
           temporality:
             frame: current
             expression: "Known"
           value: "pancreas"
-      summary: TODO
+      summary: "Liver and right lung appear only as sites of spread ('metastatic lesions in the liver and right lung') and are excluded; pancreas is the sole primary."
 
   # ---- differential: uncertain, not affirmed ----
   - note_excerpt: "Imaging shows a lung mass; likely lung primary vs. metastasis from an unknown primary. Awaiting biopsy."
@@ -93,9 +102,9 @@ field_examples:
             frame: current
             expression: null
           value: "lung"
-      summary: TODO
+      summary: "The only origin mention is a differential (lung primary vs. metastasis from an unknown primary), so the lung is reported with assertion uncertain. CUP is not considered given lack of workup."
 
-  # ---- second primary is two extractions on a single-cardinality field ----
+  # ---- second primary is two extractions reported separately ----
   - note_excerpt: "History of prostate adenocarcinoma (2015). Now with newly diagnosed primary colon cancer, sigmoid."
     field_extractions:
       extractions:
@@ -113,25 +122,68 @@ field_examples:
             frame: current
             expression: "newly diagnosed"
           value: "sigmoid colon"
-      summary: TODO
+      summary: "Two distinct primaries are stated, a historical prostate primary and a newly diagnosed sigmoid colon primary. Reported as separate findings rather than merged into one."
 
-  # ---- abstention: progress note assumes the diagnosis, never states origin ----
+  # ---- differential over ONE tumor between two named sites: two uncertain extractions ----
+  - note_excerpt: "Poorly differentiated adenocarcinoma on biopsy. Origin favored to be either gastric or pancreatic primary; cannot distinguish on current imaging. GI oncology to advise."
+    field_extractions:
+      extractions:
+        - evidence: ["either gastric or pancreatic primary"]
+          justification: "One of two mutually exclusive candidate origins for a single tumor; hedged ('favored', 'cannot distinguish'), so uncertain."
+          assertion: uncertain
+          temporality:
+            frame: current
+            expression: null
+          value: "stomach"
+        - evidence: ["either gastric or pancreatic primary"]
+          justification: "The second candidate origin for the same single tumor, cited from the same span; likewise uncertain."
+          assertion: uncertain
+          temporality:
+            frame: current
+            expression: null
+          value: "pancreas"
+      summary: "A single tumor whose origin is undetermined between two named candidate sites. Reported as two uncertain extractions over the shared differential span."
+
+  # ---- affirmed value: carcinoma of unknown primary ----
+  - note_excerpt: "Metastatic adenocarcinoma involving the liver and bone. Extensive workup completed; primary site not identified: carcinoma of unknown primary."
+    field_extractions:
+      extractions:
+        - evidence: ["carcinoma of unknown primary", "Extensive workup completed; primary site not identified"]
+          justification: "Origin is affirmatively characterized as indeterminate after a completed workup, which is a stated value rather than an absence."
+          assertion: affirmed
+          temporality:
+            frame: current
+            expression: null
+          value: "unknown primary"
+      summary: "Carcinoma of unknown primary is diagnosed affirmatively after a completed workup, so 'unknown primary' is reported as a stated value. Liver and bone appear only as metastatic sites and are excluded."
+
+  # ---- abstention: primary inferable only from a regimen ----
   - note_excerpt: "Tolerating FOLFIRINOX cycle 4 well. Neuropathy grade 1. Continue current regimen, restaging CT in 6 weeks."
     field_extractions:
       extractions: []
-      # FOLFIRINOX suggests a pancreas primary, but the note never states the
-      # site. Inferring "pancreas" from the regimen violates grounding.
-      summary: TODO
+      summary: "The note never states a primary site. FOLFIRINOX is associated with pancreatic cancer, but inferring the site from a regimen is a forbidden indirect inference, so the field is abstained on."
 
   # ---- abstention: the only primary mention is a ruled-out candidate ----
   - note_excerpt: "Upper endoscopy without malignancy; gastric primary excluded. Origin of adenocarcinoma still under investigation."
     field_extractions:
       extractions: []
-      # 'gastric primary excluded' negates the only candidate site named, so no
-      # primary-site value survives the statement. This field has no
-      # negative-polarity value -- a ruled-out site is an absence, not a result --
-      # so abstain. Distinct from the FOLFIRINOX case, which abstains because
-      # inferring a site from a regimen is forbidden, not because a site is negated.
-      summary: TODO
+      summary: "The only site named is a ruled-out candidate ('gastric primary excluded'), which removes the sole candidate and leaves no primary-site value, so the field is abstained on."
 
-  # TODO CUP example
+  # ---- abstention: cancer belongs to a relative, not the patient ----
+  - note_excerpt: "Establishing care. Patient reports strong family history of cancer: mother with ovarian cancer at 55, brother with colon cancer. Patient has no personal history of malignancy."
+    field_extractions:
+      extractions: []
+      summary: "The only cancer sites named (ovarian, colon) are in relatives, not the patient, so under the experiencer rule they are not primary-site values. The patient has no stated primary of their own, so the field is abstained on."
+
+  # ---- affirmed site, but no cue to place it in time: frame unknown ----
+  - note_excerpt: "Records received from outside hospital; documentation limited. Problem list references ovarian carcinoma. No dates or staging accompany the entry. Will obtain records for clarification."
+    field_extractions:
+      extractions:
+        - evidence: ["ovarian carcinoma", "No dates or staging accompany the entry"]
+          justification: "The diagnosis phrase names the ovary as the site of origin and is not hedged, so the site is affirmed. But the note gives no framing to place it in time: it is not marked active/known/newly (which would be current) nor as history/s-p/prior (historical), so frame is unknown. No timing phrase exists, so expression is null."
+          assertion: affirmed
+          temporality:
+            frame: unknown
+            expression: null
+          value: "ovary"
+      summary: "Ovary is an affirmed primary named by the diagnosis, but the note carries no temporal framing, so frame is unknown with a null expression."
