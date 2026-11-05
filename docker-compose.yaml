@@ -1,0 +1,23 @@
+services:
+  vllm:
+    image: vllm/vllm-openai:latest
+    ipc: host
+    volumes:
+      - "${LOCAL_MODEL_WEIGHTS}:/model"
+    ports:
+      - "${VLLM_PORT}:${VLLM_PORT}"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              device_ids: ['${CUDA_VISIBLE_DEVICES}']
+              capabilities: [gpu]
+    command: [
+      "--model", "/model",
+      "--served-model-name", "openai/gpt-oss-120b",
+      "--port", "${VLLM_PORT}",
+      "--enable-auto-tool-choice",
+      "--tool-call-parser", "openai",
+      "--max-model-len", "65536"
+    ]

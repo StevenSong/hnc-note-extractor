@@ -3,7 +3,7 @@
 # ============================================================
 version: primary_site_v1
 require_temporality: true
-require_qualifier: false
+require_qualifiers: false
 
 field_name: primary_site
 field_datatype: string
