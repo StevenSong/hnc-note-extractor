@@ -1,0 +1,89 @@
+name: specimen
+version: 1
+doc_type: pathology_report
+kind: entity
+order: 10
+scope: document
+title: Specimen
+instruction: |
+  Enumerate every distinct SPECIMEN (part) reported in this pathology report.
+  Each specimen becomes the target of later per-specimen questions (procedure,
+  carcinoma status, dysplasia), so the list must be complete and must not
+  contain duplicates.
+
+  - A specimen is a separately submitted part, usually labeled with a letter or
+    number ("A.", "B)", "Part 2", "Specimen C"). One report often has several.
+  - The same part is typically mentioned in several sections (final diagnosis,
+    specimens received, gross description, addenda). Report it ONCE, citing
+    its diagnosis-section designation when present, otherwise the
+    "Specimens Received"/gross designation.
+  - Do NOT create entries for blocks, slides, levels or stains (e.g. "A1",
+    "C2"), for specimens of a different/prior case mentioned in the clinical
+    history, or for disclaimer/methodology text.
+  - Layouts may be flattened, so parts can appear out of order or interleaved.
+    Read the whole report.
+  - If the report gives a diagnosis but never labels parts, report a single
+    specimen with label null.
+  - If the report contains no specimen at all (e.g. only a disclaimer or a
+    fragment without any diagnosis or specimen designation), abstain.
+  - List specimens in label order.
+value_description: >
+  The specimen designation as written, e.g. "Anterior subglottis; biopsy" or
+  "Prostate, right base medial; needle biopsy".
+attributes:
+  label:
+    type: string
+    nullable: true
+    description: >
+      The part label exactly as written without punctuation (e.g. "A", "B",
+      "2"), or null if the report does not label parts.
+  site:
+    type: string
+    nullable: true
+    description: >
+      The anatomic site of the specimen as worded in the report, including
+      laterality and subsite only if written (e.g. "Right true vocal cord mid
+      superior"). Null if the report does not state a site.
+target_instruction: |
+  Answer ONLY about this specimen. Statements in the report that refer to a
+  different part label, or to a different case in the clinical history, are out
+  of scope. A statement without a part label applies to this specimen only if
+  the report has a single specimen or the statement explicitly covers all parts.
+examples:
+  - excerpt: >-
+      A.  Left lateral tongue; excision:  - Invasive squamous cell carcinoma.
+      B.  Left level II lymph nodes; dissection:  - Four lymph nodes, negative
+      for carcinoma (0/4).  Specimens Received: A: Left lateral tongue B: Left
+      neck level II  Gross: A. Received fresh labeled "left tongue"... A1-A6.
+    output:
+      extractions:
+        - evidence: ["A.  Left lateral tongue; excision:"]
+          justification: Part A in the final diagnosis; the gross and specimens-received mentions are the same part.
+          assertion: affirmed
+          value: "Left lateral tongue; excision"
+          label: "A"
+          site: "Left lateral tongue"
+        - evidence: ["B.  Left level II lymph nodes; dissection:"]
+          justification: Part B in the final diagnosis.
+          assertion: affirmed
+          value: "Left level II lymph nodes; dissection"
+          label: "B"
+          site: "Left level II lymph nodes"
+      summary: Two labeled parts. A1-A6 are blocks of part A, not specimens.
+  - excerpt: >-
+      Surgical Pathology Report  - Squamous cell carcinoma in-situ.
+    output:
+      extractions:
+        - evidence: ["- Squamous cell carcinoma in-situ."]
+          justification: A diagnosis is reported without any part label or site, so there is one unlabeled specimen.
+          assertion: affirmed
+          value: "Squamous cell carcinoma in-situ."
+          label: null
+          site: null
+      summary: Single unlabeled specimen; no site is stated.
+  - excerpt: >-
+      The performance characteristics of immunohistochemistry tests performed in
+      this laboratory have been determined and validated by the laboratory.
+    output:
+      extractions: []
+      summary: Only methodology disclaimer text; no specimen or diagnosis is present.

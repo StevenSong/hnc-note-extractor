@@ -9,3 +9,12 @@ LICENSE @StevenSong
 README.md @StevenSong
 prompts/ @StevenSong
 src/ @StevenSong
+docker-compose.yaml @StevenSong
+pyproject.toml @StevenSong
+docs/ @StevenSong
+tests/ @StevenSong
+.devcontainer/ @StevenSong
+specs/ @StevenSong
+configs/ @StevenSong
+docker/ @StevenSong
+.dockerignore @StevenSong

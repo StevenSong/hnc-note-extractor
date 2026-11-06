@@ -2,3 +2,4 @@ detect-secrets
 ipywidgets
 jupyterlab
 pre-commit
+pytest

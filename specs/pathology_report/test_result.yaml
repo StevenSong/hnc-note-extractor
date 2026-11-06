@@ -1,0 +1,57 @@
+name: test_result
+version: 1
+doc_type: pathology_report
+kind: attribute
+order: 90
+scope: ancillary_test
+title: Test result
+instruction: |
+  The reported result of the target test.
+
+  - Use the pathologist's stated interpretation for `category`. Do not
+    interpret raw numbers yourself: "rare positivity (<1% of tumor cells)" or
+    "CPS of 50" without an explicit positive/negative call is
+    result_without_interpretation.
+  - "Positive"/"negative" stated by the report (including "p16 positive,
+    consistent with HPV-associated") are positive/negative.
+  - If the result is pending at one point and reported later (addendum),
+    report both as separate extractions; the justification says which is final.
+  - For molecular panels, `value` is the summary result as written (e.g. "No
+    pathogenic variants detected", "TP53 c.524G>A detected"); keep it short.
+  - Abstain if no result or status is stated for this test.
+value_description: The result as written, e.g. "negative", "strong and diffuse positivity", "CPS of 50", "pending".
+categories:
+  positive: Stated positive / detected.
+  negative: Stated negative / not detected.
+  equivocal: Stated equivocal / indeterminate / borderline.
+  result_without_interpretation: A result is given (score, percentage, variant list) without a positive/negative call.
+  pending: Stated pending, in progress, or to follow in an addendum.
+  not_performed_or_failed: Cancelled, insufficient tissue, or failed.
+examples:
+  - excerpt: >-
+      - p16 immunostain is being performed on C, and will be reported as an
+      addendum.  Addendum Diagnosis On C, p16 immunohistochemical stain is negative.
+    target: 'ONE ancillary test: "p16 immunohistochemical stain" (test_type=p16_ihc, specimen_label=C)'
+    output:
+      extractions:
+        - evidence: ["p16 immunostain is being performed on C, and will be reported as an addendum."]
+          justification: Initially pending; superseded by the addendum result.
+          assertion: affirmed
+          value: "will be reported as an addendum"
+          category: pending
+        - evidence: ["On C, p16 immunohistochemical stain is negative."]
+          justification: Final addendum result; supersedes the pending status.
+          assertion: affirmed
+          value: "negative"
+          category: negative
+      summary: Pending, then negative in the addendum (final).
+  - excerpt: "On D, p16 immunostain shows rare positivity (<1% of tumor cells). Controls appropriate."
+    target: 'ONE ancillary test: "p16 immunostain" (test_type=p16_ihc, specimen_label=D)'
+    output:
+      extractions:
+        - evidence: ["On D, p16 immunostain shows rare positivity (<1% of tumor cells)."]
+          justification: Staining extent is reported without a positive/negative call.
+          assertion: affirmed
+          value: "rare positivity (<1% of tumor cells)"
+          category: result_without_interpretation
+      summary: No interpretation is stated, so the raw result is reported as written.

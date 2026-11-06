@@ -1,0 +1,104 @@
+name: carcinoma_status
+version: 1
+doc_type: pathology_report
+kind: attribute
+order: 30
+scope: specimen
+title: Carcinoma status
+instruction: |
+  Whether the pathologist's diagnosis for the target specimen is positive,
+  suspicious, negative, or non-diagnostic for carcinoma.
+
+  Scope of "carcinoma": any carcinoma, including carcinoma in situ, and also
+  any other malignant neoplasm (e.g. lymphoma, melanoma, sarcoma). The
+  separate histology field records exactly which; here only the status matters.
+
+  - Base the status on the DIAGNOSIS for this specimen (final diagnosis,
+    diagnosis lines, addendum diagnosis), not on the clinical history, the
+    reason for the procedure, or a prior/outside diagnosis quoted in the history.
+  - positive vs suspicious: "consistent with", "compatible with" and
+    "diagnostic of" are diagnoses (positive). "Suspicious for", "worrisome for",
+    "atypical ... cannot exclude carcinoma", or "cannot rule out" are
+    suspicious. Hedged positive language such as "favor carcinoma" is positive
+    with assertion uncertain.
+  - negative requires that the specimen has a stated diagnosis: either an
+    explicit negative ("negative for carcinoma", "no malignancy identified",
+    "no tumor seen") or a benign-only diagnosis ("benign prostatic tissue",
+    "active esophagitis", "squamous mucosa with mild dysplasia") with no
+    malignancy and no suspicion. Record which with `basis`.
+  - Dysplasia alone (any grade short of carcinoma in situ) is negative here;
+    dysplasia is captured by its own field.
+  - Lymph nodes: "metastatic carcinoma in 2/15 nodes" is positive; "0/15
+    lymph nodes" or "negative for metastatic carcinoma" is negative.
+  - Margins reported for this specimen do not change its status (a resection
+    with carcinoma and clear margins is positive).
+  - If an addendum or revised diagnosis changes the status, report each
+    statement as a separate extraction and say which supersedes.
+  - Abstain if no diagnosis is stated for this specimen (e.g. the diagnosis is
+    only "see addendum"/"pending", or the part appears only in the gross).
+value_description: The diagnostic statement as worded, e.g. "Invasive squamous cell carcinoma" or "Negative for carcinoma".
+categories:
+  positive: Carcinoma (incl. in situ) or another malignancy is diagnosed in this specimen.
+  suspicious: The pathologist raises but does not commit to carcinoma/malignancy.
+  negative: A diagnosis is given and it contains no carcinoma, malignancy, or suspicion.
+  non_diagnostic: The specimen is stated to be inadequate/insufficient/non-diagnostic.
+attributes:
+  basis:
+    type: enum
+    nullable: true
+    values:
+      explicit_negative: The report explicitly states absence of carcinoma/malignancy/tumor.
+      benign_diagnosis: Only a benign diagnosis is given; absence of carcinoma is implied, not stated.
+    description: For category negative only; null for every other category.
+examples:
+  - excerpt: >-
+      B.    Right true vocal cord mid superior; biopsy:    - Squamous mucosa
+      with mild dysplasia and focal koilocytic change.  C.    Anterior
+      subglottis; biopsy:    - Invasive keratinizing squamous cell carcinoma.
+    target: 'ONE specimen: "Right true vocal cord mid superior; biopsy" (label=B)'
+    output:
+      extractions:
+        - evidence: ["Squamous mucosa with mild dysplasia and focal koilocytic change."]
+          justification: Part B's diagnosis is benign squamous mucosa with mild dysplasia; mild dysplasia is not carcinoma and no malignancy is mentioned for B.
+          assertion: affirmed
+          value: "Squamous mucosa with mild dysplasia and focal koilocytic change."
+          category: negative
+          basis: benign_diagnosis
+      summary: The carcinoma belongs to part C, which is out of scope. Part B is negative by benign diagnosis.
+  - excerpt: "A. Left neck mass, FNA: - Positive for malignant cells, consistent with metastatic squamous cell carcinoma."
+    target: 'ONE specimen: "Left neck mass, FNA" (label=A)'
+    output:
+      extractions:
+        - evidence: ["Positive for malignant cells, consistent with metastatic squamous cell carcinoma."]
+          justification: '"Consistent with" is diagnostic language.'
+          assertion: affirmed
+          value: "Positive for malignant cells, consistent with metastatic squamous cell carcinoma."
+          category: positive
+          basis: null
+      summary: Positive cytology diagnosis.
+  - excerpt: "A. Base of tongue, biopsy: - Atypical squamous proliferation, suspicious for invasive carcinoma; recommend rebiopsy."
+    target: 'ONE specimen: "Base of tongue, biopsy" (label=A)'
+    output:
+      extractions:
+        - evidence: ["Atypical squamous proliferation, suspicious for invasive carcinoma"]
+          justification: Explicitly "suspicious for" without a committed diagnosis.
+          assertion: affirmed
+          value: "Atypical squamous proliferation, suspicious for invasive carcinoma"
+          category: suspicious
+          basis: null
+      summary: The status itself (suspicious) is stated plainly, so the assertion is affirmed.
+  - excerpt: >-
+      Clinical History: 64-year-old with pT2N0 squamous cell carcinoma of the
+      gingiva s/p maxillectomy, now with new palate lesion. A. Right palate;
+      biopsy: - Benign squamous mucosa with hyperkeratosis. - Negative for
+      dysplasia and carcinoma.
+    target: 'ONE specimen: "Right palate; biopsy" (label=A)'
+    output:
+      extractions:
+        - evidence: ["Negative for dysplasia and carcinoma."]
+          justification: Explicit negative diagnosis for part A; the carcinoma in the clinical history is a prior diagnosis, not this specimen's.
+          assertion: affirmed
+          value: "Negative for dysplasia and carcinoma."
+          category: negative
+          basis: explicit_negative
+      summary: Prior gingival carcinoma excluded as history.

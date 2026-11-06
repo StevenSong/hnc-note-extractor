@@ -1,0 +1,15 @@
+# Google Gemma 4 31B IT (dense, BF16 ~62 GB), compose profile: gemma-4-31b
+# Sources: huggingface.co/google/gemma-4-31B-it, vllm recipes Google/Gemma4.md (checked 2026-11-06)
+name: gemma-4-31b
+served_model_name: gemma-4-31b
+base_url: http://llm:8000/v1
+temperature: 1.0
+top_p: 0.95
+top_k: 64
+max_tokens: 32768
+reasoning:
+  # Thinking is OFF by default; on/off only (no effort levels).
+  chat_template_kwargs: {enable_thinking: true}
+# Documented: "Structured Outputs with Thinking" (response_format json_schema).
+# The model does not see schema descriptions; our prompt states field semantics in text.
+structured_output: json_schema

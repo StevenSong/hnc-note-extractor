@@ -1,0 +1,63 @@
+name: procedure_type
+version: 1
+doc_type: pathology_report
+kind: attribute
+order: 20
+scope: specimen
+title: Procedure type
+max_items: 1
+instruction: |
+  How the target specimen was obtained (surgical methodology), as stated in
+  the report: usually in the part designation ("...; biopsy:"), the specimens
+  received list, the clinical history ("undergoing direct laryngoscopy with
+  biopsy"), or the gross description ("received ... resection specimen").
+
+  - Classify by the procedure named for THIS specimen. A procedure named in the
+    clinical history for the overall case applies only if it clearly produced
+    this specimen.
+  - Do not infer the procedure from specimen size, fragment count, or the
+    specimen type alone (e.g. "lymph nodes" does not by itself mean dissection).
+  - Abstain if no procedure is stated for this specimen.
+value_description: The procedure as worded, e.g. "biopsy", "needle biopsy", "partial glossectomy", "FNA".
+categories:
+  biopsy: >-
+    Tissue biopsy of any kind (incisional, punch, shave, needle core,
+    endoscopic, "biopsy" unspecified). Includes "excisional biopsy" ONLY if
+    the report calls it a biopsy and nothing else.
+  fine_needle_aspiration: FNA or other aspiration cytology.
+  cytology_other: Non-aspiration cytology (brushing, washing, fluid, scraping).
+  excision: >-
+    Local excision of a lesion (excision, wide local excision, re-excision,
+    lumpectomy, excisional biopsy when called an excision).
+  resection: >-
+    Removal of an organ or anatomic segment (e.g. glossectomy, laryngectomy,
+    maxillectomy, mandibulectomy, parotidectomy, thyroidectomy, prostatectomy,
+    nephrectomy) or a named margin from such a resection.
+  lymph_node_dissection: Neck dissection or other lymphadenectomy.
+  other: A stated procedure that fits none of the above (e.g. tooth extraction, curettage, arthroplasty).
+examples:
+  - excerpt: "C.    Anterior subglottis; biopsy:    - Invasive keratinizing squamous cell carcinoma."
+    target: 'ONE specimen: "Anterior subglottis; biopsy" (label=C, site=Anterior subglottis)'
+    output:
+      extractions:
+        - evidence: ["Anterior subglottis; biopsy:"]
+          justification: The part designation names a biopsy.
+          assertion: affirmed
+          value: "biopsy"
+          category: biopsy
+      summary: Procedure is stated in the part designation.
+  - excerpt: "B. Right neck, levels II-IV; selective neck dissection: - 0/23 lymph nodes involved."
+    target: 'ONE specimen: "Right neck, levels II-IV; selective neck dissection" (label=B)'
+    output:
+      extractions:
+        - evidence: ["selective neck dissection"]
+          justification: A neck dissection is a lymphadenectomy.
+          assertion: affirmed
+          value: "selective neck dissection"
+          category: lymph_node_dissection
+      summary: Procedure named in the designation.
+  - excerpt: "A. Left tonsil: - Squamous cell carcinoma, nonkeratinizing."
+    target: 'ONE specimen: "Left tonsil" (label=A)'
+    output:
+      extractions: []
+      summary: No procedure is named for part A; tonsillectomy vs biopsy cannot be told from the site alone.

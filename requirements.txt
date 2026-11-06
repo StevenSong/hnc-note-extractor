@@ -1,7 +1,11 @@
+httpx
 numpy
 omegaconf
 openai
+openpyxl
 pandas
+pydantic
+pyyaml
 scikit-learn
 scipy
 statsmodels

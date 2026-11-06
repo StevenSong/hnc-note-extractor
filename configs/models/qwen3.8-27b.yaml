@@ -1,0 +1,16 @@
+# Qwen3.8-27B (dense, BF16 ~56 GB), compose profile: qwen3.8-27b
+# Sources: huggingface.co/Qwen/Qwen3.8-27B, recipes.vllm.ai/Qwen/Qwen3.8-27B (checked 2026-11-06)
+name: qwen3.8-27b
+served_model_name: qwen3.8-27b
+base_url: http://llm:8000/v1   # compose network alias; override with --base-url / HNC_LLM_BASE_URL
+# Model-card thinking-mode sampling.
+temperature: 1.0
+top_p: 0.95
+top_k: 20
+min_p: 0.0
+max_tokens: 32768
+reasoning:
+  # Only xhigh (default) | medium | low are accepted by the chat template.
+  reasoning_effort: xhigh
+# vLLM lists the qwen3 reasoning parser as supporting json structured outputs.
+structured_output: json_schema

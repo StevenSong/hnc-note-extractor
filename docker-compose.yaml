@@ -1,23 +1,134 @@
+# One compose profile per model: exactly ONE model server runs at a time, on ONE GPU.
+# Every server listens on container port 8000 under the network alias `llm`,
+# so the runner and the model configs (base_url http://llm:8000/v1) don't change.
+#
+#   docker compose --profile qwen3.8-27b up -d            # start a model server
+#   docker compose --profile qwen3.8-27b logs -f          # wait for "Application startup complete"
+#   docker compose run --rm runner probe --model configs/models/qwen3.8-27b.yaml
+#   docker compose run --rm runner run --run-dir runs/path-qwen3.8-27b \
+#       --docs data/ingested/dev-test50/pathology_report.jsonl --model configs/models/qwen3.8-27b.yaml
+#   docker compose run --rm runner export --run-dir runs/path-qwen3.8-27b
+#   docker compose --profile qwen3.8-27b down
+#
+# Env (optional, e.g. in .env): GPU_ID (default 0), HF_CACHE (default ~/.cache/huggingface),
+# HF_TOKEN, VLLM_PORT (host port, default 8000), VLLM_IMAGE (default vllm/vllm-openai:v0.32.0).
+# Flags come from the vLLM recipes / model cards (checked 2026-11-06); see configs/models/*.yaml.
+
+x-vllm: &vllm
+  image: ${VLLM_IMAGE:-vllm/vllm-openai:v0.32.0}
+  ipc: host
+  environment:
+    - HF_TOKEN=${HF_TOKEN:-}
+  volumes:
+    - ${HF_CACHE:-~/.cache/huggingface}:/root/.cache/huggingface
+  ports:
+    - "127.0.0.1:${VLLM_PORT:-8000}:8000"
+  networks:
+    default:
+      aliases: [llm]
+  deploy:
+    resources:
+      reservations:
+        devices:
+          - driver: nvidia
+            device_ids: ["${GPU_ID:-0}"]
+            capabilities: [gpu]
+  healthcheck:
+    test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
+    interval: 30s
+    timeout: 5s
+    retries: 120
+    start_period: 120s
+
 services:
-  vllm:
-    image: vllm/vllm-openai:latest
-    ipc: host
+  qwen3.8-27b:
+    <<: *vllm
+    profiles: [qwen3.8-27b]
+    # Recipe default (TP1) with text-only mode; --mm-encoder-tp-mode is dropped
+    # because the recipe says it is mutually exclusive with --language-model-only.
+    # If v0.32.0 fails to load it, the recipe's image is vllm/vllm-openai:qwen38.
+    command:
+      - Qwen/Qwen3.8-27B
+      - --served-model-name=qwen3.8-27b
+      - --tensor-parallel-size=1
+      - --reasoning-parser=qwen3
+      - --language-model-only
+      - --max-model-len=65536
+      - --gpu-memory-utilization=0.92
+
+  muse-glimmer-30b:
+    <<: *vllm
+    profiles: [muse-glimmer-30b]
+    # Recipe default (TP1). Hopper is not on its verified list. The recipe runs the
+    # tool parser together with the reasoning parser, so both are kept.
+    command:
+      - meta-models/Muse-Glimmer-30B
+      - --served-model-name=muse-glimmer-30b
+      - --generation-config=auto
+      - --tensor-parallel-size=1
+      - --enable-auto-tool-choice
+      - --tool-call-parser=muse_glimmer
+      - --reasoning-parser=muse_glimmer
+      - --max-model-len=65536
+      - --gpu-memory-utilization=0.92
+
+  gemma-4-31b:
+    <<: *vllm
+    profiles: [gemma-4-31b]
+    # Recipe TP1 without the tool-calling template (no tools used); text-only.
+    # Recipe's Hopper image if needed: vllm/vllm-openai:gemma4-0505-cu129
+    command:
+      - google/gemma-4-31B-it
+      - --served-model-name=gemma-4-31b
+      - --tensor-parallel-size=1
+      - --reasoning-parser=gemma4
+      - --language-model-only
+      - --max-model-len=65536
+      - --gpu-memory-utilization=0.92
+
+  nemotron-3.5-super-nvfp4:
+    <<: *vllm
+    profiles: [nemotron-3.5-super-nvfp4]
+    # NVIDIA cookbook "1x H200" command. The mamba/block/cudagraph flags must be
+    # changed only as a set. Video flags dropped and text-only flags added per the
+    # cookbook's text-only commands.
+    command:
+      - nvidia/NVIDIA-Nemotron-3.5-Super-VL-120B-A12B-NVFP4
+      - --served-model-name=nemotron-3.5-super
+      - --tensor-parallel-size=1
+      - --max-num-seqs=128
+      - --trust-remote-code
+      - --max-model-len=114688
+      - --gpu-memory-utilization=0.89
+      - --max-num-batched-tokens=16384
+      - --block-size=64
+      - --prefix-match-unit=64
+      - --compilation_config.max_cudagraph_capture_size=256
+      - --mamba-backend=flashinfer
+      - --mamba-ssm-cache-dtype=float16
+      - --enable-mamba-cache-stochastic-rounding
+      - --mamba-cache-philox-rounds=5
+      - --enable-mamba-shared-prefix-checkpoint
+      - --mamba-cache-mode=align
+      - --speculative-config.method=mtp
+      - --speculative-config.num_speculative_tokens=3
+      - --language-model-only
+      - --chat-template-content-format=string
+      - --enable-auto-tool-choice
+      - --tool-call-parser=qwen3_coder
+      - --reasoning-parser=nemotron_v3
+
+  runner:
+    profiles: [runner]
+    build:
+      context: .
+      dockerfile: docker/runner.Dockerfile
+    user: "${UID:-1000}:${GID:-1000}"
+    working_dir: /app
+    environment:
+      - HNC_LLM_BASE_URL=http://llm:8000/v1
     volumes:
-      - "${LOCAL_MODEL_WEIGHTS}:/model"
-    ports:
-      - "${VLLM_PORT}:${VLLM_PORT}"
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              device_ids: ['${CUDA_VISIBLE_DEVICES}']
-              capabilities: [gpu]
-    command: [
-      "--model", "/model",
-      "--served-model-name", "openai/gpt-oss-120b",
-      "--port", "${VLLM_PORT}",
-      "--enable-auto-tool-choice",
-      "--tool-call-parser", "openai",
-      "--max-model-len", "65536"
-    ]
+      - ./data:/app/data:ro
+      - ./specs:/app/specs:ro
+      - ./configs:/app/configs:ro
+      - ./runs:/app/runs

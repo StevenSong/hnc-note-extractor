@@ -1,0 +1,86 @@
+name: ancillary_test
+version: 1
+doc_type: pathology_report
+kind: entity
+order: 80
+scope: document
+title: Ancillary test
+instruction: |
+  Enumerate every HPV-related, EBV, PD-L1, or molecular test reported in this
+  report: performed, resulted, pending, or ordered as an addendum.
+
+  In scope (see test_type):
+  - p16 immunohistochemistry (a surrogate marker for HPV)
+  - HPV testing by ISH (DNA or RNA, high-risk), PCR, or an unspecified method
+  - EBV testing (EBER in situ hybridization)
+  - PD-L1 immunohistochemistry (any clone, e.g. 22C3, SP263, SP142; scored as
+    CPS, TPS, or IC)
+  - molecular/genomic testing: named panels or sequencing (e.g. OncoPlus, NGS,
+    "next-generation sequencing", FoundationOne), and single-gene or targeted
+    assays (FISH, mutation testing, fusion testing, MMR/MSI, TMB)
+
+  Out of scope: routine diagnostic stains (e.g. cytokeratins, p40, p63, CK5/6,
+  S100, GMS, PAS, mucicarmine), flow cytometry, special stains, and generic
+  methodology/disclaimer paragraphs that describe a test without reporting one
+  for this patient.
+
+  - One entry per test per specimen: p16 on part C and p16 on part D are two
+    entries. A pending test and its later addendum result for the SAME
+    specimen are ONE entry.
+  - Identify the test from what the report states (test name, clone, scoring
+    system, method). Do not assume a test was done because it is customary.
+  - Abstain if no in-scope test is reported.
+value_description: The test name as written, e.g. "p16 immunostain", "HPV high-risk RNA ISH", "OncoPlus".
+attributes:
+  test_type:
+    type: enum
+    values:
+      p16_ihc: p16 immunohistochemistry.
+      hpv_ish: HPV in situ hybridization (DNA or RNA).
+      hpv_pcr: HPV by PCR or another amplification assay.
+      hpv_unspecified: HPV testing whose method is not stated.
+      ebv_ish: EBV / EBER in situ hybridization.
+      pdl1_ihc: PD-L1 immunohistochemistry.
+      molecular_panel: Multi-gene panel or sequencing (e.g. OncoPlus, NGS).
+      single_gene_molecular: Single-gene or targeted assay (FISH, mutation, fusion, MMR/MSI, TMB).
+    description: Category of the test, as stated or unambiguously named by the report.
+  specimen_label:
+    type: string
+    nullable: true
+    description: Part label of the specimen tested (e.g. "C"), or null if the report does not say.
+target_instruction: |
+  Answer ONLY about this test on this specimen. Results of the same test type
+  on a different specimen, or of other tests, are out of scope.
+examples:
+  - excerpt: >-
+      C.    Anterior subglottis; biopsy:    - Invasive keratinizing squamous
+      cell carcinoma. - p16 immunostain pending.  Addendum Diagnosis - On D, p16
+      immunostain shows rare positivity (<1% of tumor cells). Controls
+      appropriate. - p16 immunostain is being performed on C, and will be
+      reported as an addendum.  Addendum Diagnosis On C, p16
+      immunohistochemical stain is negative.
+    output:
+      extractions:
+        - evidence: ["On C, p16 immunohistochemical stain is negative."]
+          justification: p16 IHC on part C; pending at first, resulted in the second addendum, so one entry.
+          assertion: affirmed
+          value: "p16 immunohistochemical stain"
+          test_type: p16_ihc
+          specimen_label: "C"
+        - evidence: ["On D, p16 immunostain shows rare positivity (<1% of tumor cells)."]
+          justification: Separate p16 IHC on part D.
+          assertion: affirmed
+          value: "p16 immunostain"
+          test_type: p16_ihc
+          specimen_label: "D"
+      summary: Two p16 tests on two specimens. No HPV ISH, PD-L1, or molecular testing reported.
+  - excerpt: "Right maxillary gingiva; biopsy: GMS stain highlights surface fungal spores. PD-L1 (22C3) shows a CPS of 50."
+    output:
+      extractions:
+        - evidence: ["PD-L1 (22C3) shows a CPS of 50."]
+          justification: PD-L1 IHC by clone 22C3, scored as CPS. The single specimen is unlabeled.
+          assertion: affirmed
+          value: "PD-L1 (22C3)"
+          test_type: pdl1_ihc
+          specimen_label: null
+      summary: GMS is a special stain and out of scope.

@@ -1,0 +1,52 @@
+name: dysplasia_status
+version: 1
+doc_type: pathology_report
+kind: attribute
+order: 60
+scope: specimen
+title: Dysplasia / premalignancy status
+instruction: |
+  Whether the report states that dysplasia or another premalignant
+  (intraepithelial) lesion is present or absent in the target specimen.
+
+  - positive: dysplasia of any grade, squamous intraepithelial lesion/neoplasia
+    (SIL, LSIL, HSIL, SIN, VIN, PIN, etc.), carcinoma in situ, or an adenoma
+    with dysplasia, stated for this specimen. Dysplasia adjacent to or at the
+    margin of an invasive carcinoma counts.
+  - negative: explicitly absent ("no dysplasia", "negative for dysplasia",
+    "negative for intraepithelial lesion", "no dysplasia or malignancy").
+  - Abstain when dysplasia is not mentioned for this specimen. A benign
+    diagnosis without the word dysplasia (or an equivalent explicit negative)
+    is an abstention, not a negative.
+  - "Atypia" or "reactive atypia" is NOT dysplasia unless the report calls it
+    dysplasia or a premalignant lesion.
+value_description: The statement as worded, e.g. "mild dysplasia", "No dysplasia", "high-grade squamous intraepithelial lesion".
+categories:
+  positive: Dysplasia / premalignant intraepithelial lesion present.
+  negative: Explicitly stated to be absent.
+examples:
+  - excerpt: "A.    GE junction at 55 cm; biopsy:    - Specialized columnar mucosa, consistent with Barrett's esophagus. - No dysplasia."
+    target: 'ONE specimen: "GE junction at 55 cm; biopsy" (label=A)'
+    output:
+      extractions:
+        - evidence: ["- No dysplasia."]
+          justification: Explicitly negative for part A.
+          assertion: affirmed
+          value: "No dysplasia"
+          category: negative
+      summary: Explicit negative.
+  - excerpt: "B.    Right true vocal cord mid superior; biopsy:    - Squamous mucosa with mild dysplasia and focal koilocytic change."
+    target: 'ONE specimen: "Right true vocal cord mid superior; biopsy" (label=B)'
+    output:
+      extractions:
+        - evidence: ["Squamous mucosa with mild dysplasia"]
+          justification: Mild dysplasia stated for part B.
+          assertion: affirmed
+          value: "mild dysplasia"
+          category: positive
+      summary: Dysplasia present (grade is a separate field).
+  - excerpt: "A. Esophagus at 24: - Active esophagitis, with up to 20 intraepithelial eosinophils per HPF."
+    target: 'ONE specimen: "Esophagus at 24" (label=A)'
+    output:
+      extractions: []
+      summary: Dysplasia is not mentioned; a benign diagnosis alone is not an explicit negative.

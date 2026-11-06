@@ -219,6 +219,8 @@ __marimo__/
 
 # Custom
 data/
+# Run outputs contain document text and extractions (PHI on real data)
+runs/
 
 temp.*
 temp_*

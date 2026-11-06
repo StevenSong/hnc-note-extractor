@@ -1,0 +1,92 @@
+name: histology
+version: 1
+doc_type: pathology_report
+kind: attribute
+order: 40
+scope: specimen
+depends_on:
+  - field: carcinoma_status
+    categories: [positive, suspicious]
+title: Histologic diagnosis
+instruction: |
+  The histologic type of the carcinoma/malignancy diagnosed (or suspected) in
+  the target specimen, worded as in the report.
+
+  - Report the most complete histologic diagnosis stated for this specimen
+    (e.g. "Invasive keratinizing squamous cell carcinoma", "Metastatic
+    squamous cell carcinoma", "Adenoid cystic carcinoma", "Diffuse large B-cell
+    lymphoma"). Keep qualifiers that are part of the diagnosis (keratinizing,
+    basaloid, HPV-associated) in `value`.
+  - Do not upgrade a non-specific diagnosis: "carcinoma" stays "carcinoma"
+    even if the history mentions squamous cell carcinoma.
+  - If the report gives a differential ("squamous cell carcinoma vs
+    lymphoepithelial carcinoma"), report each candidate as its own uncertain
+    extraction citing the shared span.
+  - If an addendum revises the histology, report both and say which supersedes.
+  - Separate components of the SAME tumor (e.g. invasive SCC with adjacent
+    carcinoma in situ) are reported as separate extractions, one per component.
+  - Abstain if the report names no histologic type for this specimen.
+value_description: The histologic diagnosis as worded, e.g. "Invasive keratinizing squamous cell carcinoma".
+attributes:
+  invasion:
+    type: enum
+    values:
+      invasive: Stated as invasive, infiltrating, or metastatic.
+      in_situ: Stated as in situ / intraepithelial without invasion.
+      microinvasive: Stated as microinvasive / superficially invasive.
+      not_stated: The report does not say. Do not infer invasion from the procedure or the site.
+    description: Invasion status of this histology as stated.
+  differentiation:
+    type: string
+    nullable: true
+    description: Differentiation/grade as worded (e.g. "moderately differentiated", "poorly differentiated", "high grade"); null if not stated.
+  described_as_metastatic:
+    type: enum
+    values:
+      "yes": The report calls this tumor metastatic (e.g. in a lymph node or distant site).
+      "no": The report does not call it metastatic.
+    description: Whether the report describes this tumor in this specimen as metastatic.
+examples:
+  - excerpt: "C.    Anterior subglottis; biopsy:    - Invasive keratinizing squamous cell carcinoma. - p16 immunostain pending."
+    target: 'ONE specimen: "Anterior subglottis; biopsy" (label=C). Already extracted: carcinoma_status: positive'
+    output:
+      extractions:
+        - evidence: ["Invasive keratinizing squamous cell carcinoma."]
+          justification: Diagnosis line for part C.
+          assertion: affirmed
+          value: "Invasive keratinizing squamous cell carcinoma"
+          invasion: invasive
+          differentiation: null
+          described_as_metastatic: "no"
+      summary: Single histology; no differentiation stated.
+  - excerpt: "B. Left neck level II, dissection: - Metastatic squamous cell carcinoma, poorly differentiated, in 2 of 14 lymph nodes (2/14); largest deposit 1.8 cm; extranodal extension present."
+    target: 'ONE specimen: "Left neck level II, dissection" (label=B). Already extracted: carcinoma_status: positive'
+    output:
+      extractions:
+        - evidence: ["Metastatic squamous cell carcinoma, poorly differentiated"]
+          justification: Nodal metastasis of SCC, differentiation stated.
+          assertion: affirmed
+          value: "Metastatic squamous cell carcinoma"
+          invasion: invasive
+          differentiation: "poorly differentiated"
+          described_as_metastatic: "yes"
+      summary: Nodal metastatic SCC.
+  - excerpt: "A. Right tonsil, biopsy: - Poorly differentiated carcinoma; squamous cell carcinoma favored over lymphoepithelial carcinoma, see comment."
+    target: 'ONE specimen: "Right tonsil, biopsy" (label=A). Already extracted: carcinoma_status: positive'
+    output:
+      extractions:
+        - evidence: ["squamous cell carcinoma favored over lymphoepithelial carcinoma"]
+          justification: Favored type in a stated differential.
+          assertion: uncertain
+          value: "squamous cell carcinoma"
+          invasion: not_stated
+          differentiation: "Poorly differentiated"
+          described_as_metastatic: "no"
+        - evidence: ["squamous cell carcinoma favored over lymphoepithelial carcinoma"]
+          justification: Disfavored alternative in the same differential.
+          assertion: uncertain
+          value: "lymphoepithelial carcinoma"
+          invasion: not_stated
+          differentiation: "Poorly differentiated"
+          described_as_metastatic: "no"
+      summary: The type is a differential, so each candidate is an uncertain extraction; the committed diagnosis "Poorly differentiated carcinoma" is captured as differentiation.

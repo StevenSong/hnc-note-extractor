@@ -1,0 +1,6 @@
+# Offline regex stand-in (hnc_extract/mock.py) for CPU-only pipeline tests.
+# Its output is NOT data.
+name: mock
+provider: mock
+served_model_name: mock
+max_attempts: 2

@@ -1,0 +1,57 @@
+name: dysplasia_grade
+version: 1
+doc_type: pathology_report
+kind: attribute
+order: 70
+scope: specimen
+depends_on:
+  - field: dysplasia_status
+    categories: [positive]
+title: Dysplasia grade
+instruction: |
+  The grade of the dysplasia/premalignant lesion in the target specimen, as stated.
+
+  - Use the report's own grading terms. Do not convert between systems
+    (do not map "high-grade" to "severe" or the reverse); use the matching
+    category for the term actually written.
+  - A range ("mild to moderate dysplasia") is reported as one extraction per
+    endpoint, citing the same span.
+  - Different foci with different grades are reported as separate extractions.
+  - Carcinoma in situ (or "squamous cell carcinoma in situ") is the category
+    carcinoma_in_situ.
+  - Abstain if dysplasia is present but no grade is stated.
+value_description: The grade wording, e.g. "moderate", "high-grade", "carcinoma in situ".
+categories:
+  mild: Mild dysplasia (also "mild squamous dysplasia").
+  moderate: Moderate dysplasia.
+  severe: Severe dysplasia.
+  carcinoma_in_situ: Carcinoma in situ.
+  low_grade: Stated as low-grade (e.g. low-grade dysplasia, LSIL).
+  high_grade: Stated as high-grade (e.g. high-grade dysplasia, HSIL).
+  other: A stated grade that fits none of the above (e.g. "indefinite for dysplasia", "VIN 2").
+examples:
+  - excerpt: "B. Left lateral tongue; biopsy: - Squamous mucosa with mild to moderate dysplasia. - Negative for invasive carcinoma."
+    target: 'ONE specimen: "Left lateral tongue; biopsy" (label=B). Already extracted: dysplasia_status: positive'
+    output:
+      extractions:
+        - evidence: ["mild to moderate dysplasia"]
+          justification: Lower endpoint of a stated range.
+          assertion: affirmed
+          value: "mild"
+          category: mild
+        - evidence: ["mild to moderate dysplasia"]
+          justification: Upper endpoint of a stated range.
+          assertion: affirmed
+          value: "moderate"
+          category: moderate
+      summary: A range is reported as both endpoints.
+  - excerpt: "A. Vocal cord, biopsy: - High-grade squamous dysplasia."
+    target: 'ONE specimen: "Vocal cord, biopsy" (label=A). Already extracted: dysplasia_status: positive'
+    output:
+      extractions:
+        - evidence: ["High-grade squamous dysplasia."]
+          justification: Two-tier term written; not converted to severe.
+          assertion: affirmed
+          value: "High-grade"
+          category: high_grade
+      summary: High-grade as written.

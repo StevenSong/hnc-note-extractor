@@ -1,0 +1,48 @@
+name: pdl1_score
+version: 1
+doc_type: pathology_report
+kind: attribute
+order: 100
+scope: ancillary_test
+scope_filter:
+  test_type: [pdl1_ihc]
+title: PD-L1 score
+instruction: |
+  The PD-L1 score(s) reported for the target PD-L1 test.
+
+  - One extraction per reported score: a report giving both CPS and TPS has two.
+  - Report the score exactly as written, including comparators and ranges
+    ("<1", ">=20", "1-19", "50").
+  - The interpretive guideline text that explains how CPS/TPS are calculated
+    is methodology, not a result. Never extract numbers from it.
+  - Abstain if the test is pending or no score is given.
+value_description: The score statement as written, e.g. "CPS of 50", "TPS <1%".
+categories:
+  cps: Combined positive score.
+  tps: Tumor proportion score.
+  ic: Immune cell score.
+  other: Another or unnamed scoring system.
+attributes:
+  score:
+    type: string
+    description: The numeric score as written, with comparator if any (e.g. "50", "<1", "1-19").
+  clone:
+    type: string
+    nullable: true
+    description: Antibody clone as written (e.g. "22C3"), or null if not stated.
+examples:
+  - excerpt: >-
+      PD-L1 (22C3) shows a CPS of 50. ... Interpretive Guidelines: The tumor
+      proportion score (TPS) is the percentage of viable tumor cells showing
+      partial or complete membrane staining ... the maximum score is capped at 100.
+    target: 'ONE ancillary test: "PD-L1 (22C3)" (test_type=pdl1_ihc, specimen_label=null)'
+    output:
+      extractions:
+        - evidence: ["PD-L1 (22C3) shows a CPS of 50."]
+          justification: CPS stated with clone.
+          assertion: affirmed
+          value: "CPS of 50"
+          category: cps
+          score: "50"
+          clone: "22C3"
+      summary: Only CPS is reported. TPS appears only in the methodology text, and "capped at 100" is not a result.

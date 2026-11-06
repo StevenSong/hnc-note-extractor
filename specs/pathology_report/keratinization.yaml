@@ -1,0 +1,44 @@
+name: keratinization
+version: 1
+doc_type: pathology_report
+kind: attribute
+order: 50
+scope: specimen
+depends_on:
+  - field: carcinoma_status
+    categories: [positive, suspicious]
+title: Keratinization status
+instruction: |
+  Whether the squamous carcinoma in the target specimen is stated to be
+  keratinizing or non-keratinizing.
+
+  - Extract only an explicit statement ("keratinizing", "non-keratinizing",
+    "nonkeratinizing", "keratinizing type", "with focal keratinization",
+    "hybrid", "nonkeratinizing with maturation").
+  - Never infer keratinization from HPV/p16 status, from the site
+    (e.g. oropharynx), from "well differentiated", or from keratin-related
+    stains (cytokeratin/CK5/6/AE1/AE3 are not keratinization status).
+  - "Keratin pearls" or "keratinization present" in the description count as
+    keratinizing only if they describe this tumor.
+  - Abstain if not stated, and for non-squamous tumors unless the report states it.
+value_description: The keratinization wording, e.g. "keratinizing", "nonkeratinizing".
+categories:
+  keratinizing: Stated as keratinizing (including with focal/prominent keratinization).
+  non_keratinizing: Stated as non-keratinizing (with or without "maturation").
+  mixed_or_hybrid: Stated as hybrid, partially keratinizing, or mixed keratinizing/non-keratinizing.
+examples:
+  - excerpt: "- Invasive squamous cell carcinoma, keratinizing, see comment."
+    target: 'ONE specimen: "Right maxillary gingiva; biopsy". Already extracted: carcinoma_status: positive'
+    output:
+      extractions:
+        - evidence: ["Invasive squamous cell carcinoma, keratinizing"]
+          justification: Explicitly keratinizing.
+          assertion: affirmed
+          value: "keratinizing"
+          category: keratinizing
+      summary: Stated in the diagnosis line.
+  - excerpt: "A. Left tonsil: - Squamous cell carcinoma, p16 positive, HPV-associated."
+    target: 'ONE specimen: "Left tonsil" (label=A). Already extracted: carcinoma_status: positive'
+    output:
+      extractions: []
+      summary: HPV association suggests but does not state non-keratinizing morphology; inferring it is forbidden, so abstain.
