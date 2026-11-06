@@ -18,3 +18,4 @@ specs/ @StevenSong
 configs/ @StevenSong
 docker/ @StevenSong
 .dockerignore @StevenSong
+slurm/ @StevenSong

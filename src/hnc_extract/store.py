@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import sqlite3
 from pathlib import Path
 
@@ -57,6 +58,13 @@ class Store:
                 created_utc TEXT NOT NULL
             )""")
         self.db.commit()
+        # SQLite creates files as 0644 regardless of umask. The runner container
+        # runs as root, so open the cache to everyone (the -wal/-shm files copy
+        # this mode).
+        try:
+            os.chmod(path, 0o666)
+        except PermissionError:
+            pass
 
     def get(self, key: str) -> CallRecord | None:
         row = self.db.execute(

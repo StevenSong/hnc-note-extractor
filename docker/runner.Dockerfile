@@ -5,4 +5,5 @@ COPY pyproject.toml ./
 COPY src ./src
 RUN pip install --no-cache-dir .
 # specs/ and configs/ are bind-mounted by compose so edits need no rebuild.
-ENTRYPOINT ["python", "-m", "hnc_extract"]
+# umask 000: outputs are world-writable so the host user can edit/delete them.
+ENTRYPOINT ["/bin/sh", "-c", "umask 000 && exec python -m hnc_extract \"$@\"", "hnc_extract"]

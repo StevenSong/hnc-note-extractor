@@ -1,15 +1,16 @@
 # Running the pathology slice
 
 Everything below runs from the repo root on the GPU host. One model server runs at a
-time, on one GPU (`GPU_ID`, default 0). The runner is CPU-only and reaches the server at
+time, on one GPU, chosen by the host's `CUDA_VISIBLE_DEVICES`. It is required for the model
+servers and has no default: if unset, the server fails to start with a device error naming
+`ERROR_CUDA_VISIBLE_DEVICES_NOT_SET`. Runner commands (`build`, `run`) don't need it. The runner is CPU-only and reaches the server at
 `http://llm:8000/v1` on the compose network.
 
 ## 0. Once: ingest (synthetic data) and build the runner
 
 ```bash
 python -m hnc_extract ingest-synthetic data/dev-test50          # -> data/ingested/dev-test50/
-docker compose build runner
-mkdir -p runs
+docker compose build runner     # outputs under ./runs are world-writable (umask 000)
 ```
 
 ## 1. Per model: serve, probe, run, export
@@ -17,6 +18,7 @@ mkdir -p runs
 Model profiles: `qwen3.8-27b`, `muse-glimmer-30b`, `gemma-4-31b`, `nemotron-3.5-super-nvfp4`.
 
 ```bash
+export CUDA_VISIBLE_DEVICES=2              # host GPU for the model server (required)
 M=qwen3.8-27b
 docker compose --profile $M up -d
 docker compose --profile $M logs -f        # wait for "Application startup complete" (first start downloads weights)
@@ -40,6 +42,29 @@ docker compose --profile $M down
 
 `--limit 0` clears the saved 10-document limit. Other run settings are also saved in
 `runs/<dir>/run.json`, so a bare `run --run-dir ...` resumes with the same settings.
+
+## 1b. Smoke runs via SLURM (all models in parallel, one GPU each)
+
+SLURM only reserves the GPU. Each job starts its own compose project (its own network,
+`llm` alias and containers) on the reserved host GPU, with host port `18000 + GPU`, so
+the four jobs don't collide. Step 0 (ingest) must be done first.
+
+```bash
+slurm/submit_smoke.sh                                  # all four models
+slurm/submit_smoke.sh gemma-4-31b                      # or a subset
+SBATCH_ARGS="-p <partition>" slurm/submit_smoke.sh     # extra sbatch flags
+squeue --me
+```
+
+Each job writes to `runs/smoke/<model>-j<jobid>/`: the run dir itself, plus
+`export/review.xlsx` and `logs/` (`meta.txt` provenance: git commit, image digest,
+vLLM version, HF revision, GPU; `git.diff`; `server.log`; `probe.log`, `run.log`,
+`status.log`; `steps.tsv`). SLURM's own log is `runs/smoke/slurm-smoke-<model>-<jobid>.out`.
+Every job uses a fresh run dir, so reruns never reuse cached calls.
+
+Gemma (and possibly Muse) is gated on Hugging Face: set `HF_TOKEN` (shell or `.env`) and
+accept the license once before the first download. If a job is killed with SIGKILL, so
+its cleanup can't run, remove its containers by hand: `docker compose -p hnc-smoke-<jobid> down`.
 
 ## What to send back (no PHI in the synthetic data, but check before sharing real data)
 

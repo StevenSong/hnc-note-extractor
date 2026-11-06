@@ -23,7 +23,7 @@ import sys
 import time
 from collections import Counter
 from collections.abc import Callable, Iterable
-from concurrent.futures import ThreadPoolExecutor, as_completed
+from concurrent.futures import FIRST_COMPLETED, ThreadPoolExecutor, wait
 
 from hnc_extract.documents import Document
 from hnc_extract.evidence import EvidenceIndex
@@ -229,6 +229,7 @@ def run(
     fields: set[str] | None = None,
     concurrency: int = 8,
     log: Callable[[str], None] = _log,
+    heartbeat_s: float = 60.0,
 ) -> dict[str, Counter]:
     docs = list(docs)
     model_fp = model.fingerprint()
@@ -253,16 +254,47 @@ def run(
                 pool.submit(_execute, n, specs, model, client): n
                 for n in pending.values()
             }
-            for i, fut in enumerate(as_completed(futs), 1):
-                rec = fut.result()
-                store.put(rec)
-                results[rec.status] += 1
-                if i % 25 == 0 or i == len(futs):
+            remaining, done_n = set(futs), 0
+            while remaining:
+                finished, remaining = wait(
+                    remaining, timeout=heartbeat_s, return_when=FIRST_COMPLETED
+                )
+                el = time.monotonic() - t0
+                if not finished:
                     log(
-                        f"[{spec.name}] {i}/{len(futs)} {dict(results)} ({time.monotonic() - t0:.0f}s)"
+                        f"[{spec.name}] {done_n}/{len(futs)} done, {len(remaining)} in flight "
+                        f"({el:.0f}s)"
+                    )
+                for fut in finished:
+                    rec = fut.result()
+                    store.put(rec)
+                    done_n += 1
+                    results[rec.status] += 1
+                    log(
+                        f"[{spec.name}] {done_n}/{len(futs)} {_call_summary(futs[fut], rec)}"
+                    )
+                if finished and (done_n % 25 == 0 or not remaining):
+                    log(
+                        f"[{spec.name}] {done_n}/{len(futs)} {dict(results)} ({el:.0f}s)"
                     )
         summary[spec.name] = results
     return summary
+
+
+def _call_summary(node: Node, rec: CallRecord) -> str:
+    """One log line per finished call: where, outcome, attempts, tokens, time."""
+    toks = sum(
+        (a.get("usage") or {}).get("completion_tokens") or 0 for a in rec.attempts
+    )
+    secs = sum(a.get("latency_s") or 0 for a in rec.attempts)
+    n = len(rec.output["extractions"]) if rec.output else 0
+    errs = [a["error"][:80] for a in rec.attempts if a.get("error")]
+    where = f"{node.doc.doc_id[:8]} {node.instance.path or '-'}"
+    tail = f" errors={errs}" if errs else ""
+    return (
+        f"{where}: {rec.status}, {n} value(s), {len(rec.attempts)} attempt(s), "
+        f"{toks} completion tokens, {secs:.0f}s{tail}"
+    )
 
 
 def _execute(

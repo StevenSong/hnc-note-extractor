@@ -10,8 +10,15 @@
 #   docker compose run --rm runner export --run-dir runs/path-qwen3.8-27b
 #   docker compose --profile qwen3.8-27b down
 #
-# Env (optional, e.g. in .env): GPU_ID (default 0), HF_CACHE (default ~/.cache/huggingface),
-# HF_TOKEN, VLLM_PORT (host port, default 8000), VLLM_IMAGE (default vllm/vllm-openai:v0.32.0).
+# Env (from the shell or .env):
+#   CUDA_VISIBLE_DEVICES  REQUIRED for model servers (not for the runner), no default: host GPU
+#                         index(es). If unset, the server fails to start. Compose
+#                         reads it from the host shell. Inside the container the GPUs are
+#                         renumbered from 0, so it is deliberately NOT forwarded as a
+#                         container env var. Every model is TP1; with several ids, vLLM
+#                         uses only the first.
+#   HF_CACHE (default ~/.cache/huggingface), HF_TOKEN, VLLM_PORT (host port, default 8000),
+#   VLLM_IMAGE (default vllm/vllm-openai:v0.32.0)
 # Flags come from the vLLM recipes / model cards (checked 2026-11-06); see configs/models/*.yaml.
 
 x-vllm: &vllm
@@ -31,7 +38,11 @@ x-vllm: &vllm
       reservations:
         devices:
           - driver: nvidia
-            device_ids: ["${GPU_ID:-0}"]
+            # Not `:?`: compose interpolates the whole file regardless of profile, so
+            # that would also break `build runner` / `run runner`. Instead, an unset
+            # variable becomes this sentinel id, which the NVIDIA runtime rejects when a
+            # model server starts. No GPU is ever picked implicitly.
+            device_ids: ["${CUDA_VISIBLE_DEVICES:-ERROR_CUDA_VISIBLE_DEVICES_NOT_SET}"]
             capabilities: [gpu]
   healthcheck:
     test: ["CMD-SHELL", "curl -sf http://localhost:8000/health || exit 1"]
@@ -120,10 +131,13 @@ services:
 
   runner:
     profiles: [runner]
+    # Fixed tag, so every compose project (e.g. one per SLURM job) shares one image.
+    image: hnc-runner:local
     build:
       context: .
       dockerfile: docker/runner.Dockerfile
-    user: "${UID:-1000}:${GID:-1000}"
+    # Runs as root; the entrypoint sets umask 000 so everything it writes under
+    # ./runs is world-readable/writable (dirs 777, files 666).
     working_dir: /app
     environment:
       - HNC_LLM_BASE_URL=http://llm:8000/v1
