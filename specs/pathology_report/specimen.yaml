@@ -1,5 +1,5 @@
 name: specimen
-version: 1
+version: 2
 doc_type: pathology_report
 kind: entity
 order: 10
@@ -17,9 +17,12 @@ instruction: |
     specimens received, gross description, addenda). Report it ONCE, citing
     its diagnosis-section designation when present, otherwise the
     "Specimens Received"/gross designation.
-  - Do NOT create entries for blocks, slides, levels or stains (e.g. "A1",
-    "C2"), for specimens of a different/prior case mentioned in the clinical
-    history, or for disclaimer/methodology text.
+  - A part that consists of slides or blocks received for consultation or
+    second opinion (e.g. "Material(s) Received A: 1 consult slide") IS a
+    specimen, even when no diagnosis is given: it is the patient's tissue.
+  - Do NOT create separate entries for the blocks, slides, levels or stains
+    OF a part (e.g. "A1", "C2"), for specimens of a different/prior case
+    mentioned in the clinical history, or for disclaimer/methodology text.
   - Layouts may be flattened, so parts can appear out of order or interleaved.
     Read the whole report.
   - If the report gives a diagnosis but never labels parts, report a single
@@ -43,7 +46,27 @@ attributes:
     description: >
       The anatomic site of the specimen as worded in the report, including
       laterality and subsite only if written (e.g. "Right true vocal cord mid
-      superior"). Null if the report does not state a site.
+      superior"). Take it from the part's own designation (diagnosis heading,
+      specimens-received list) or its gross/container description. Only if
+      neither states a site, the report has exactly ONE specimen, and the
+      clinical history names exactly ONE site or lesion, use that site and
+      include the clinical-history quote in evidence. Otherwise null.
+  site_source:
+    type: enum
+    nullable: true
+    values:
+      designation: From the part's designation (diagnosis heading or specimens-received list).
+      gross: From the gross or container description of the part.
+      clinical_history: From the clinical history (single-specimen reports only, see site).
+    description: Where `site` was taken from; null exactly when site is null.
+  material:
+    type: enum
+    values:
+      submitted_tissue: Tissue or cytology material from the procedure, received by this laboratory (fresh, in formalin, aspirate).
+      outside_slides: Slides only, received from another institution for consultation/review.
+      outside_blocks: Paraffin blocks (with or without slides) received from another institution.
+      not_stated: The report does not say what was received for this part.
+    description: What this laboratory received for the part.
 target_instruction: |
   Answer ONLY about this specimen. Statements in the report that refer to a
   different part label, or to a different case in the clinical history, are out
@@ -52,9 +75,10 @@ target_instruction: |
 examples:
   - excerpt: >-
       A.  Left lateral tongue; excision:  - Invasive squamous cell carcinoma.
-      B.  Left level II lymph nodes; dissection:  - Four lymph nodes, negative
-      for carcinoma (0/4).  Specimens Received: A: Left lateral tongue B: Left
+      B.  Left level II lymph nodes; dissection:  - Three lymph nodes, no
+      carcinoma identified (0/3).  Specimens Received: A: Left lateral tongue B: Left
       neck level II  Gross: A. Received fresh labeled "left tongue"... A1-A6.
+      B. Received in formalin labeled "level II"... B1-B3.
     output:
       extractions:
         - evidence: ["A.  Left lateral tongue; excision:"]
@@ -63,13 +87,17 @@ examples:
           value: "Left lateral tongue; excision"
           label: "A"
           site: "Left lateral tongue"
+          site_source: designation
+          material: submitted_tissue
         - evidence: ["B.  Left level II lymph nodes; dissection:"]
           justification: Part B in the final diagnosis.
           assertion: affirmed
           value: "Left level II lymph nodes; dissection"
           label: "B"
           site: "Left level II lymph nodes"
-      summary: Two labeled parts. A1-A6 are blocks of part A, not specimens.
+          site_source: designation
+          material: submitted_tissue
+      summary: Two labeled parts, both received from the procedure. A1-A6 and B1-B3 are blocks, not specimens.
   - excerpt: >-
       Surgical Pathology Report  - Squamous cell carcinoma in-situ.
     output:
@@ -80,10 +108,31 @@ examples:
           value: "Squamous cell carcinoma in-situ."
           label: null
           site: null
-      summary: Single unlabeled specimen; no site is stated.
+          site_source: null
+          material: not_stated
+      summary: Single unlabeled specimen; no site and no received material are stated.
   - excerpt: >-
       The performance characteristics of immunohistochemistry tests performed in
       this laboratory have been determined and validated by the laboratory.
     output:
       extractions: []
       summary: Only methodology disclaimer text; no specimen or diagnosis is present.
+  - excerpt: >-
+      Clinical History: 58-year-old with a left tonsil mass.  Material(s)
+      Received A: Received from Outside Hospital is 2 consult slides labeled
+      XX-XXXX, accompanied by an outside report.
+    output:
+      extractions:
+        - evidence: ["Material(s) Received A:", "left tonsil mass"]
+          justification: >-
+            Part A is consult slides from another institution, which is a
+            specimen. The part itself states no site; the report has one
+            specimen and the history names one lesion, so the site comes from
+            the clinical history.
+          assertion: affirmed
+          value: "2 consult slides"
+          label: "A"
+          site: "left tonsil"
+          site_source: clinical_history
+          material: outside_slides
+      summary: One consult specimen (slides only); site taken from the clinical history.

@@ -149,7 +149,7 @@ def heuristic_responder(messages: list[dict], schema: dict | None, meta: dict) -
                         [m.group(0)],
                         m.group(0),
                         "negative",
-                        basis="benign_diagnosis",
+                        basis="non_malignant_diagnosis",
                     )
                 ]
             )

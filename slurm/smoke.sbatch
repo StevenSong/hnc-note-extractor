@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # Smoke test for one model on one SLURM-reserved GPU: serve with vLLM (docker compose),
-# then probe, a 10-report run, status and export. Every output goes to files for review.
+# then probe, a run on the pinned smoke set, status and export. Every output goes to files
+# for review.
 #
 #   mkdir -p runs/smoke && sbatch -J smoke-qwen3.8-27b slurm/smoke.sbatch qwen3.8-27b
 #   slurm/submit_smoke.sh            # all four models (creates runs/smoke itself)
@@ -18,8 +19,10 @@
 #   logs/{probe,run,status,export}.log     runner output per step
 #   logs/steps.tsv                         step, exit code, seconds
 #
-# Env overrides: CONCURRENCY (default 16, same as the first Qwen smoke), LIMIT (default 10),
-# DOCS, HF_TOKEN, HF_CACHE, VLLM_IMAGE. Gemma and possibly Muse are gated on Hugging Face:
+# Env overrides: CONCURRENCY (default 16, same as the first Qwen smoke), DOC_IDS_FILE
+# (default configs/eval/path-smoke.txt: the pinned 20-report set, with the reason for
+# each), LIMIT (if set, run the first N reports instead of DOC_IDS_FILE), DOCS, HF_TOKEN,
+# HF_CACHE, VLLM_IMAGE. Gemma and possibly Muse are gated on Hugging Face:
 # HF_TOKEN must be set (shell or .env) for the first download.
 #
 #SBATCH --job-name=hnc-smoke
@@ -37,7 +40,8 @@ cd "${SLURM_SUBMIT_DIR:-$(pwd)}"
 
 JOB="${SLURM_JOB_ID:-local$$}"
 CONCURRENCY="${CONCURRENCY:-16}"
-LIMIT="${LIMIT:-10}"
+LIMIT="${LIMIT:-}"
+DOC_IDS_FILE="${DOC_IDS_FILE:-configs/eval/path-smoke.txt}"
 DOCS="${DOCS:-data/ingested/dev-test50/pathology_report.jsonl}"
 CFG="configs/models/$M.yaml"
 RUN_DIR="runs/smoke/$M-j$JOB"
@@ -49,6 +53,14 @@ say() { echo "[$(ts)] $*"; }
 # ---- preflight -------------------------------------------------------------------------
 [[ -f "$CFG" ]] || { say "no model config $CFG"; exit 2; }
 [[ -f "$DOCS" ]] || { say "no docs at $DOCS; run ingest-synthetic first (docs/RUNNING.md step 0)"; exit 2; }
+if [[ -n "$LIMIT" ]]; then
+    SELECT=(--limit "$LIMIT")
+else
+    # The runner mounts ./configs, so the path is the same inside the container.
+    [[ -f "$DOC_IDS_FILE" && "$DOC_IDS_FILE" == configs/* ]] \
+        || { say "DOC_IDS_FILE must be an existing file under configs/: '$DOC_IDS_FILE'"; exit 2; }
+    SELECT=(--doc-ids-file "$DOC_IDS_FILE")
+fi
 grep -qE "^  $M:\$" docker-compose.yaml || { say "no compose service '$M'"; exit 2; }
 
 # Host GPU index. SLURM_JOB_GPUS holds the host indices. CUDA_VISIBLE_DEVICES is the
@@ -109,7 +121,8 @@ step() {
     echo "host:        $(hostname)"
     echo "slurm job:   $JOB  host GPU=$GPU (SLURM_JOB_GPUS=${SLURM_JOB_GPUS:-unset})  port=$VLLM_PORT"
     echo "model:       $M  config=$CFG"
-    echo "docs:        $DOCS  limit=$LIMIT  concurrency=$CONCURRENCY"
+    echo "docs:        $DOCS  select=${SELECT[*]}  concurrency=$CONCURRENCY"
+    [[ -n "$LIMIT" ]] || echo "doc ids:     $DOC_IDS_FILE sha256=$(sha256sum "$DOC_IDS_FILE" | cut -d' ' -f1)"
     echo "git commit:  $(git rev-parse HEAD 2>/dev/null || echo n/a)  branch=$(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo n/a)"
     echo "git status:"; git status --short 2>/dev/null | sed 's/^/    /'
     echo "docs sha256: $(sha256sum "$DOCS" | cut -d' ' -f1)"
@@ -164,7 +177,7 @@ fi
 R=(docker compose run --rm -T runner)
 step probe  "${R[@]}" probe --model "$CFG"
 step run    "${R[@]}" run --run-dir "$RUN_DIR" --docs "$DOCS" --model "$CFG" \
-                --limit "$LIMIT" --concurrency "$CONCURRENCY"
+                "${SELECT[@]}" --concurrency "$CONCURRENCY"
 step status "${R[@]}" status --run-dir "$RUN_DIR"
 step export "${R[@]}" export --run-dir "$RUN_DIR"
 

@@ -43,7 +43,9 @@ class ModelConfig(BaseModel):
     top_k: int | None = None
     min_p: float | None = None
     max_tokens: int = 16384
-    # "auto": derive a per-call seed from the cache key (reproducible re-runs).
+    # "auto": derive a per-call seed from the cache key. vLLM sampling under
+    # concurrent batching is NOT bit-reproducible even with a seed (seen in the
+    # 2026-11-06 Qwen rerun); the cache is what makes a run reproducible.
     seed: int | Literal["auto"] | None = "auto"
     structured_output: Literal["json_schema", "none"] = "json_schema"
     reasoning: ReasoningConfig = ReasoningConfig()
@@ -153,6 +155,11 @@ class OpenAICompatClient:
                 time.sleep(delay)
                 delay = min(delay * 2, 60)
                 continue
+            if r.status_code == 400 and "max_tokens" in body and _too_long(r.text):
+                # prompt + max_tokens exceeds max-model-len: let the server use
+                # whatever context remains instead of failing the call
+                body = {k: v for k, v in body.items() if k != "max_tokens"}
+                r = self.http.post("/chat/completions", json=body)
             if r.status_code >= 400:
                 # e.g. prompt longer than max-model-len: not retryable, surface vLLM's message
                 raise RuntimeError(f"HTTP {r.status_code} from server: {r.text[:1000]}")
@@ -172,6 +179,11 @@ class OpenAICompatClient:
         r = self.http.get("/models")
         r.raise_for_status()
         return [m["id"] for m in r.json().get("data", [])]
+
+
+def _too_long(text: str) -> bool:
+    t = text.lower()
+    return "maximum context length" in t or "too large" in t
 
 
 Responder = Callable[[list[dict], dict | None, dict], str]

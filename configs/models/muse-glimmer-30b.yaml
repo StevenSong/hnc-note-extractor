@@ -7,7 +7,7 @@ base_url: http://llm:8000/v1
 temperature: 1.0   # recipe: never greedy
 top_p: 0.95
 top_k: 64
-max_tokens: 32768
+max_tokens: 49152   # max-model-len 65536 leaves ~16k for the prompt (largest seen: 10.5k); longer prompts fall back to the remaining context
 reasoning:
   # Effort is set by a system-prompt line: low | medium | high (template default) | xhigh
   system_prompt_suffix: "Reasoning strength: xhigh"

@@ -317,6 +317,21 @@ def write_workbook(
             + f"; dysplasia={s['dysplasia_status']}"
             + (f" ({','.join(s['dysplasia_grades'])})" if s["dysplasia_grades"] else "")
             + (f"; procedure={','.join(s['procedure'])}" if s["procedure"] else "")
+            + (
+                f"; material={s['material']}"
+                if s.get("material") not in (None, "submitted_tissue")
+                else ""
+            )
+            + (
+                f"; site_source={s['site_source']}"
+                if s.get("site_source") == "clinical_history"
+                else ""
+            )
+            + (
+                f"; FLAGS={','.join(s['review_flags'])}"
+                if s.get("review_flags")
+                else ""
+            )
             for s in ru.get("specimens", [])
         )
         test_txt = "\n".join(

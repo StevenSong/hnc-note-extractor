@@ -49,7 +49,8 @@ def test_child_prompt_gets_target_and_siblings(specs, tmp_path):
     by_label = {c["meta"]["context"]["chain"][0]["item"]["label"]: c for c in calls}
     ctx_b = by_label["B"]["meta"]["context"]
     assert ctx_b["chain"][0]["siblings"] == [
-        '"Left tongue; excision" (label=A, site=Left tongue)'
+        '"Left tongue; excision" (label=A, site=Left tongue, '
+        "site_source=designation, material=submitted_tissue)"
     ]
     hist = [c for c in client.calls if c["meta"]["field"] == "histology"]
     assert (
@@ -131,3 +132,19 @@ def test_fields_filter_runs_only_requested(specs, tmp_path):
     assert {c["meta"]["field"] for c in client.calls} == {"specimen", "procedure_type"}
     nodes = traverse(make_doc(), specs, store, MODEL.fingerprint())
     assert nodes[("histology", "specimen[0]")].status == "blocked"
+
+
+def test_rollup_flags_specimen_without_diagnosis(specs, tmp_path):
+    def responder(messages, schema, meta):
+        chain = meta["context"]["chain"]
+        if meta["field"] == "carcinoma_status" and chain[-1]["item"]["label"] == "B":
+            return '{"extractions": [], "summary": "no diagnosis for B"}'
+        return scripted_pathology_responder(messages, schema, meta)
+
+    store = Store(tmp_path / "c.sqlite")
+    doc = make_doc()
+    _run(specs, store, [doc], responder=responder)
+    ru = pathology_rollup(traverse(doc, specs, store, MODEL.fingerprint()))
+    flags = {s["label"]: s["review_flags"] for s in ru["specimens"]}
+    assert flags == {"A": [], "B": ["no_diagnosis_stated"]}
+    assert ru["specimens"][0]["material"] == "submitted_tissue"

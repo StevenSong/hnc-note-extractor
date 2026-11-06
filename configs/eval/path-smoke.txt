@@ -1,0 +1,34 @@
+# Pathology smoke set: 20 reports from data/ingested/dev-test50/pathology_report.jsonl.
+# One doc id per line; text after '#' is ignored. Used by slurm/smoke.sbatch
+# (run --doc-ids-file). Each report was read in full and chosen for what it exercises.
+# None of them may supply spec example text (tests/test_spec_examples.py).
+#
+# Carried over from the session-4 smoke (compare against runs/smoke/<model>-j2867x)
+0bc4e1da-d901-4830-9879-c8d8f3720740  # scrambled salivary duct ca; outside material; HER2 3+ and AR; Nemotron dropped part B
+1e4d7bc1-7b11-42e5-86ff-eed63bca3f89  # longest (19.8k chars), 31 parts; masked PD-L1 "TPS <1% and CPS <1"; truncations, Muse missed 5 parts. NOT c4217861 (exact duplicate)
+ec176897-70bd-4c57-9636-54755bb578f2  # consult slides only, no diagnosis: specimen with material=outside_slides, carcinoma abstains
+44574ae2-dba7-4daa-a58b-e8440299c243  # unlabeled leading lymph node part; p16 negative
+03ee00cf-1e8f-4e90-8a15-08d3f51f5ae1  # orphan leading diagnosis line; CIS; "markedly" dysplastic -> grade other
+957cd9d6-33c3-4d1c-a98e-44de92b80ea5  # simple single-part benign report
+30529140-4403-4b95-a3f8-a5a368602d53  # 4 parts; p16 pending -> addendum negative (C) and rare <1% (D); mild dysplasia; Barrett's no dysplasia. Spec examples no longer copied from it
+#
+# Ancillary tests
+51d3e03f-a3f9-42c1-aa0c-39e1c23085e5  # PD-L1 name masked, "TPS 15% and CPS 20" (two scores); outside p16 negative; HER2/ASCO and PD-L1 interpretive-guideline boilerplate (not results); "suspicious for perineural invasion" on a positive SCC; slides + block received
+503df940-0b5c-4a96-8c13-a60afa5af0db  # FoundationOne panel in addendum (EGFR amp, TP53, PIK3CA...); 17 parts, part A unlabeled; moderate dysplasia (C); mandibulectomy; 0/41 nodes; frozen-section lines
+9190e2c4-5320-4d2a-b8f0-5c0c43e1225d  # scrambled outside consult, parts A-G listed but diagnoses headed by site; p53 and Ki67 IHC; HPV ISH negative; masked PD-L1 "(CPS <1)"; severe dysplasia/CIS; "may represent ... microinvasion"
+2b59cfa0-999b-4cbc-b82d-da863765bc88  # gastric DLBCL (non-carcinoma malignancy, positive); EBER negative; Ki-67 70%; one diagnosis covers 4 unlabeled parts; "stool HPV" decoy in history
+d23d33b8-0ce9-465c-ad10-89fc4e5c5e0e  # HPV DNA ISH negative in an addendum; no diagnosis line (carcinoma abstains); history says laryngeal cancer
+7b1a549d-9af2-4f1e-9616-dd30d32d2bb2  # bone marrow (WHIM); "mutation"/CXCR4 background text is NOT a molecular test; SCC only in history; out-of-scope immunostain panel
+#
+# Diagnosis categories and dysplasia
+5764becf-0d86-4287-a52b-4c74548daa98  # scrambled outside blocks consult; "At least carcinoma in situ, suspicious for superficial invasion"; superficially invasive SCC; mild and "mild to moderate" dysplasia
+c1131c14-9517-460f-9fd1-7e0ae44f6950  # mild squamous dysplasia + treatment effect (B); "atypia, negative for carcinoma" is not dysplasia (C); part D has no diagnosis; leading part A unlabeled
+dc8f8d7c-becb-471f-9488-34fc47b2cee4  # 217-char fragment: high grade dysplasia, "No invasion seen" (unlabeled part A); necrotic part B
+fa59e511-8658-4879-ba2d-7f64fbb91df2  # lung FNA cytology, poorly differentiated carcinoma; passes "Inadequate" but specimen satisfactory (NOT non_diagnostic); colon ca history
+#
+# Consults, non-HNC, and no-specimen edge cases
+ad3797a6-aaf2-4112-abf3-5712e1a164ac  # consult slides WITH a diagnosis; parts numbered 1/2 in diagnosis but "A" in materials; non-keratinizing SCC, metastatic in neck
+fe970d4c-30cc-4d2f-b0a0-c161714d15ce  # prostate, 12 benign parts; leading summary line is not a part; part L has no diagnosis
+e9a11d98-bd14-41ac-ba52-5a77373ac4c6  # 119-char smear review fragment: no specimen designation
+#
+# Not included: a truly non-diagnostic specimen (none found by keyword search in dev-test50).

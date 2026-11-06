@@ -164,3 +164,55 @@ def test_system_prompt_suffix(specs):
 
 def test_completion_defaults():
     assert Completion("x").usage == {}
+
+
+SPEC_A = item(
+    ["A.  Left tongue; excision:"],
+    "Left tongue; excision",
+    label="A",
+    site="Left tongue",
+    site_source="designation",
+    material="submitted_tissue",
+)
+SPEC_B_GOOD = item(
+    ["B.  Left neck; dissection:"],
+    "Left neck; dissection",
+    label="B",
+    site="Left neck",
+    site_source="designation",
+    material="submitted_tissue",
+)
+SPEC_B_BAD = {**SPEC_B_GOOD, "evidence": ["Specimens: A) tongue B) neck"]}
+
+
+def test_correction_that_drops_an_extraction_keeps_earlier_answer(specs):
+    # Seen with Nemotron: an unverifiable quote led the model to delete a real specimen.
+    c = ScriptedClient([answer(SPEC_A, SPEC_B_BAD), answer(SPEC_A)])
+    rec = _run(c, specs, field="specimen")
+    assert rec.status == "flagged" and len(rec.attempts) == 2
+    assert [e["label"] for e in rec.output["extractions"]] == ["A", "B"]
+    assert not rec.evidence[1][0]["found"]
+    assert "dropped 1 of 2" in rec.attempts[1]["error"]
+    assert "Fix the quotes, not the answer" in c.calls[1]["messages"][3]["content"]
+
+
+def test_correction_that_fixes_the_quote_is_ok(specs):
+    c = ScriptedClient([answer(SPEC_A, SPEC_B_BAD), answer(SPEC_A, SPEC_B_GOOD)])
+    rec = _run(c, specs, field="specimen")
+    assert rec.status == "ok" and len(rec.output["extractions"]) == 2
+
+
+def test_truncation_during_correction_restarts_fresh(specs):
+    class C(ScriptedClient):
+        def chat(self, messages, schema, seed, meta):
+            comp = super().chat(messages, schema, seed, meta)
+            if len(self.calls) == 2:
+                comp.finish_reason = "length"
+            return comp
+
+    fake = answer(item(["keratinising"], "keratinizing", category="keratinizing"))
+    c = C([fake, '{"extr', GOOD])
+    rec = _run(c, specs)
+    assert rec.status == "ok" and len(rec.attempts) == 3
+    assert len(c.calls[1]["messages"]) == 4  # correction turn
+    assert len(c.calls[2]["messages"]) == 2  # fresh after truncation

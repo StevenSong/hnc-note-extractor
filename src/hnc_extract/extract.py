@@ -3,7 +3,9 @@
 Outcomes (`CallRecord.status`):
   ok       schema-valid output; every evidence quote found in the document
   flagged  schema-valid output, but some quote could not be verified after all
-           attempts (kept for review; never silently trusted)
+           attempts (kept for review; never silently trusted). Also used when
+           an evidence correction DROPPED extractions: the earlier, larger
+           answer is kept so a real item (e.g. a specimen) is not lost silently
   invalid  no schema-valid output after all attempts (children are blocked)
   error    transport/server error (retried on the next run)
 """
@@ -82,9 +84,12 @@ def _feedback_for_evidence(bad: list[tuple[int, str]]) -> str:
         f"  - extraction {i}: {json.dumps(q, ensure_ascii=False)}" for i, q in bad
     ]
     lines.append(
-        "Copy each quote character-for-character from the document, including masking characters "
-        "and typos, without ellipses; split non-contiguous text into separate quotes. If the value "
-        "has no verbatim support, remove that extraction. Return the full corrected JSON object only."
+        "Fix the quotes, not the answer. Copy each quote character-for-character from the document, "
+        "including masking characters and typos, without ellipses. The document layout may be "
+        "flattened or interleaved, so text that belongs together may not be contiguous: quote a "
+        "shorter contiguous span, or split it into several separate quotes. Keep every extraction "
+        "and its value; remove one only if, on rereading, the document does not support it at all. "
+        "Return the full corrected JSON object only."
     )
     return "\n".join(lines)
 
@@ -126,7 +131,10 @@ def run_call(
 
     attempts: list[dict] = []
     best: tuple[dict, list[list[dict]]] | None = None
+    # Largest answer that failed evidence verification, and its attempt number.
+    widest_flagged: tuple[dict, list[list[dict]], int] | None = None
     status = "invalid"
+    original = messages
     for n in range(model.max_attempts):
         att: dict = {"n": n}
         attempts.append(att)
@@ -148,7 +156,10 @@ def run_call(
         )
         if comp.finish_reason == "length":
             att["error"] = "truncated (finish_reason=length)"
-            continue  # fresh retry; a truncated answer is not worth correcting
+            messages = (
+                original  # fresh retry; a truncated answer is not worth correcting
+            )
+            continue
 
         try:
             parsed = out_model.model_validate(
@@ -172,10 +183,21 @@ def run_call(
             for c in item
             if not c["found"]
         ]
+        if widest_flagged is not None:
+            prev, prev_checks, prev_n = widest_flagged
+            k, m = len(parsed["extractions"]), len(prev["extractions"])
+            if k < m:
+                att["error"] = (
+                    f"rejected: dropped {m - k} of {m} extraction(s) while correcting "
+                    f"evidence; kept attempt {prev_n} for review"
+                )
+                best, status = (prev, prev_checks), "flagged"
+                break
         best = (parsed, checks)
         if not bad:
             status = "ok"
             break
+        widest_flagged = (parsed, checks, n)  # never smaller: see the check above
         status = "flagged"
         att["error"] = f"unverified evidence: {len(bad)} quote(s)"
         messages = messages[:2] + [

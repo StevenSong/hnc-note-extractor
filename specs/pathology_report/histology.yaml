@@ -1,5 +1,5 @@
 name: histology
-version: 1
+version: 2
 doc_type: pathology_report
 kind: attribute
 order: 40
@@ -47,14 +47,14 @@ attributes:
       "no": The report does not call it metastatic.
     description: Whether the report describes this tumor in this specimen as metastatic.
 examples:
-  - excerpt: "C.    Anterior subglottis; biopsy:    - Invasive keratinizing squamous cell carcinoma. - p16 immunostain pending."
-    target: 'ONE specimen: "Anterior subglottis; biopsy" (label=C). Already extracted: carcinoma_status: positive'
+  - excerpt: "C.  Posterior commissure; biopsy:  - Invasive squamous cell carcinoma, keratinizing type. - p16 immunostain to follow."
+    target: 'ONE specimen: "Posterior commissure; biopsy" (label=C). Already extracted: carcinoma_status: positive'
     output:
       extractions:
-        - evidence: ["Invasive keratinizing squamous cell carcinoma."]
-          justification: Diagnosis line for part C.
+        - evidence: ["Invasive squamous cell carcinoma, keratinizing type."]
+          justification: Diagnosis line for part C; the keratinizing qualifier is part of the diagnosis.
           assertion: affirmed
-          value: "Invasive keratinizing squamous cell carcinoma"
+          value: "Invasive squamous cell carcinoma, keratinizing type"
           invasion: invasive
           differentiation: null
           described_as_metastatic: "no"

@@ -30,6 +30,15 @@ def _top(categories: list[str], order: list[str]) -> str | None:
     return ranked[0] if ranked else None
 
 
+def _specimen_flags(nodes: dict[tuple[str, str], Node], path: str) -> list[str]:
+    """Structural review flags for one specimen (no clinical inference)."""
+    flags = []
+    carc = nodes.get(("carcinoma_status", path))
+    if carc is not None and carc.status == "done" and not carc.items:
+        flags.append("no_diagnosis_stated")
+    return flags
+
+
 def _final_results(items: list[dict]) -> list[dict]:
     """Prefer resulted over pending statements of the same test."""
     resulted = [i for i in items if i.get("category") != "pending"]
@@ -69,6 +78,8 @@ def pathology_rollup(nodes: dict[tuple[str, str], Node]) -> dict:
                     "path": path,
                     "label": item.get("label"),
                     "site": item.get("site"),
+                    "site_source": item.get("site_source"),
+                    "material": item.get("material"),
                     "procedure": [it["category"] for it in items("procedure_type")],
                     "carcinoma_status": _top(carc, CARCINOMA_PRECEDENCE),
                     "carcinoma_status_conflict": len(set(carc)) > 1,
@@ -84,6 +95,7 @@ def pathology_rollup(nodes: dict[tuple[str, str], Node]) -> dict:
                     "dysplasia_grades": sorted(
                         {it["category"] for it in items("dysplasia_grade")}
                     ),
+                    "review_flags": _specimen_flags(nodes, path),
                 }
             )
 

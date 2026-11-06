@@ -6,9 +6,10 @@ served_model_name: nemotron-3.5-super
 base_url: http://llm:8000/v1
 temperature: 1.0   # card: text sampling
 top_p: 0.95
-max_tokens: 32768
+max_tokens: 81920   # max-model-len 114688; 32768 truncated 6 calls on the 31-part report
 reasoning:
   # Full thinking; add medium_effort: true for medium.
   chat_template_kwargs: {enable_thinking: true}
-# Structured outputs with nemotron_v3 are undocumented; enable after `probe` passes.
-structured_output: none
+# Structured outputs with nemotron_v3 are undocumented, but `probe` passed with
+# json_schema (2026-11-06 smoke, job 28676); with `none`, 4 answers were invalid JSON.
+structured_output: json_schema

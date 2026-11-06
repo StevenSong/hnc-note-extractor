@@ -1,5 +1,5 @@
 name: dysplasia_grade
-version: 1
+version: 2
 doc_type: pathology_report
 kind: attribute
 order: 70
@@ -19,7 +19,14 @@ instruction: |
   - Different foci with different grades are reported as separate extractions.
   - Carcinoma in situ (or "squamous cell carcinoma in situ") is the category
     carcinoma_in_situ.
-  - Abstain if dysplasia is present but no grade is stated.
+  - A degree word that matches none of the categories (e.g. "markedly
+    dysplastic") is category other, with the word verbatim as `value`. Do not
+    map it to a category ("marked" is not converted to severe).
+  - Words of extent or distribution ("focal", "multifocal", "extensive") are
+    not grades.
+  - Abstain only if no grade or degree word is stated. Dysplasia itself is
+    already recorded by dysplasia_status; abstaining here leaves the grade
+    blank.
 value_description: The grade wording, e.g. "moderate", "high-grade", "carcinoma in situ".
 categories:
   mild: Mild dysplasia (also "mild squamous dysplasia").
@@ -28,7 +35,7 @@ categories:
   carcinoma_in_situ: Carcinoma in situ.
   low_grade: Stated as low-grade (e.g. low-grade dysplasia, LSIL).
   high_grade: Stated as high-grade (e.g. high-grade dysplasia, HSIL).
-  other: A stated grade that fits none of the above (e.g. "indefinite for dysplasia", "VIN 2").
+  other: A stated grade or degree word that fits none of the above (e.g. "indefinite for dysplasia", "VIN 2", "markedly").
 examples:
   - excerpt: "B. Left lateral tongue; biopsy: - Squamous mucosa with mild to moderate dysplasia. - Negative for invasive carcinoma."
     target: 'ONE specimen: "Left lateral tongue; biopsy" (label=B). Already extracted: dysplasia_status: positive'
@@ -55,3 +62,13 @@ examples:
           value: "High-grade"
           category: high_grade
       summary: High-grade as written.
+  - excerpt: "A. Left ventral tongue; biopsy: - Focal, markedly dysplastic squamous epithelium."
+    target: 'ONE specimen: "Left ventral tongue; biopsy" (label=A). Already extracted: dysplasia_status: positive'
+    output:
+      extractions:
+        - evidence: ["markedly dysplastic"]
+          justification: '"Markedly" is a stated degree that is not one of the grading terms; "focal" is extent, not grade.'
+          assertion: affirmed
+          value: "markedly"
+          category: other
+      summary: Non-standard degree word kept verbatim as other.

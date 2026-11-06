@@ -1,5 +1,5 @@
 name: test_result
-version: 1
+version: 2
 doc_type: pathology_report
 kind: attribute
 order: 90
@@ -16,6 +16,9 @@ instruction: |
     consistent with HPV-associated") are positive/negative.
   - If the result is pending at one point and reported later (addendum),
     report both as separate extractions; the justification says which is final.
+  - For immunostains and ISH, also copy the staining descriptors the report
+    gives into `percent_cells`, `intensity`, and `pattern`, as written. Do not
+    derive a positive/negative call from them.
   - For molecular panels, `value` is the summary result as written (e.g. "No
     pathogenic variants detected", "TP53 c.524G>A detected"); keep it short.
   - Abstain if no result or status is stated for this test.
@@ -27,31 +30,53 @@ categories:
   result_without_interpretation: A result is given (score, percentage, variant list) without a positive/negative call.
   pending: Stated pending, in progress, or to follow in an addendum.
   not_performed_or_failed: Cancelled, insufficient tissue, or failed.
+attributes:
+  percent_cells:
+    type: string
+    nullable: true
+    description: Proportion of cells staining, as written (e.g. "<1%", "approximately 10%", ">70%", "rare"); null if not stated or not a stain.
+  intensity:
+    type: string
+    nullable: true
+    description: Staining intensity or intensity score, as written (e.g. "strong", "moderate to strong", "3+"); null if not stated.
+  pattern:
+    type: string
+    nullable: true
+    description: Staining pattern or localization, as written (e.g. "nuclear and cytoplasmic", "block-type", "patchy", "diffuse"); null if not stated.
 examples:
   - excerpt: >-
-      - p16 immunostain is being performed on C, and will be reported as an
-      addendum.  Addendum Diagnosis On C, p16 immunohistochemical stain is negative.
-    target: 'ONE ancillary test: "p16 immunohistochemical stain" (test_type=p16_ihc, specimen_label=C)'
+      - p16 immunostain on part C is in progress and will follow in a second
+      addendum.  Addendum Diagnosis: For part C, p16 immunohistochemistry is negative.
+    target: 'ONE ancillary test: "p16 immunohistochemistry" (test_type=p16_ihc, specimen_label=C)'
     output:
       extractions:
-        - evidence: ["p16 immunostain is being performed on C, and will be reported as an addendum."]
+        - evidence: ["p16 immunostain on part C is in progress and will follow in a second addendum."]
           justification: Initially pending; superseded by the addendum result.
           assertion: affirmed
-          value: "will be reported as an addendum"
+          value: "will follow in a second addendum"
           category: pending
-        - evidence: ["On C, p16 immunohistochemical stain is negative."]
+          percent_cells: null
+          intensity: null
+          pattern: null
+        - evidence: ["For part C, p16 immunohistochemistry is negative."]
           justification: Final addendum result; supersedes the pending status.
           assertion: affirmed
           value: "negative"
           category: negative
+          percent_cells: null
+          intensity: null
+          pattern: null
       summary: Pending, then negative in the addendum (final).
-  - excerpt: "On D, p16 immunostain shows rare positivity (<1% of tumor cells). Controls appropriate."
+  - excerpt: "For part D, p16 immunostain highlights rare tumor cells (<1%); controls work appropriately."
     target: 'ONE ancillary test: "p16 immunostain" (test_type=p16_ihc, specimen_label=D)'
     output:
       extractions:
-        - evidence: ["On D, p16 immunostain shows rare positivity (<1% of tumor cells)."]
+        - evidence: ["For part D, p16 immunostain highlights rare tumor cells (<1%)"]
           justification: Staining extent is reported without a positive/negative call.
           assertion: affirmed
-          value: "rare positivity (<1% of tumor cells)"
+          value: "rare tumor cells (<1%)"
           category: result_without_interpretation
+          percent_cells: "<1%"
+          intensity: null
+          pattern: null
       summary: No interpretation is stated, so the raw result is reported as written.

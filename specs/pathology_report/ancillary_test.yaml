@@ -1,13 +1,14 @@
 name: ancillary_test
-version: 1
+version: 2
 doc_type: pathology_report
 kind: entity
 order: 80
 scope: document
 title: Ancillary test
 instruction: |
-  Enumerate every HPV-related, EBV, PD-L1, or molecular test reported in this
-  report: performed, resulted, pending, or ordered as an addendum.
+  Enumerate every HPV-related, EBV, PD-L1, biomarker immunostain, or molecular
+  test reported in this report: performed, resulted, pending, or ordered as an
+  addendum.
 
   In scope (see test_type):
   - p16 immunohistochemistry (a surrogate marker for HPV)
@@ -15,17 +16,23 @@ instruction: |
   - EBV testing (EBER in situ hybridization)
   - PD-L1 immunohistochemistry (any clone, e.g. 22C3, SP263, SP142; scored as
     CPS, TPS, or IC)
+  - biomarker immunostains, exactly this list: HER2, androgen receptor (AR),
+    mismatch repair proteins (MLH1, PMS2, MSH2, MSH6), pan-TRK, ALK, ROS1,
+    Ki-67, p53, NUT
   - molecular/genomic testing: named panels or sequencing (e.g. OncoPlus, NGS,
     "next-generation sequencing", FoundationOne), and single-gene or targeted
-    assays (FISH, mutation testing, fusion testing, MMR/MSI, TMB)
+    assays (FISH/ISH for amplification or rearrangement, mutation testing,
+    fusion testing, MSI by PCR, TMB)
 
-  Out of scope: routine diagnostic stains (e.g. cytokeratins, p40, p63, CK5/6,
-  S100, GMS, PAS, mucicarmine), flow cytometry, special stains, and generic
+  Out of scope: diagnostic immunostains not in the list above (e.g.
+  cytokeratins, CK7, CK5/6, p40, p63, S100, SOX10, GCDFP15, mammaglobin),
+  flow cytometry, special stains (GMS, PAS, mucicarmine), and generic
   methodology/disclaimer paragraphs that describe a test without reporting one
   for this patient.
 
   - One entry per test per specimen: p16 on part C and p16 on part D are two
-    entries. A pending test and its later addendum result for the SAME
+    entries. Biomarker immunostains are one entry per marker ("HER2 and AR"
+    is two entries); an MMR panel reported together is one entry. A pending test and its later addendum result for the SAME
     specimen are ONE entry.
   - Identify the test from what the report states (test name, clone, scoring
     system, method). Do not assume a test was done because it is customary.
@@ -41,8 +48,9 @@ attributes:
       hpv_unspecified: HPV testing whose method is not stated.
       ebv_ish: EBV / EBER in situ hybridization.
       pdl1_ihc: PD-L1 immunohistochemistry.
+      biomarker_ihc: Immunostain for a listed biomarker (HER2, AR, MMR proteins, pan-TRK, ALK, ROS1, Ki-67, p53, NUT).
       molecular_panel: Multi-gene panel or sequencing (e.g. OncoPlus, NGS).
-      single_gene_molecular: Single-gene or targeted assay (FISH, mutation, fusion, MMR/MSI, TMB).
+      single_gene_molecular: Single-gene or targeted assay (FISH/ISH, mutation, fusion, MSI by PCR, TMB). MMR by immunostain is biomarker_ihc.
     description: Category of the test, as stated or unambiguously named by the report.
   specimen_label:
     type: string
@@ -53,34 +61,54 @@ target_instruction: |
   on a different specimen, or of other tests, are out of scope.
 examples:
   - excerpt: >-
-      C.    Anterior subglottis; biopsy:    - Invasive keratinizing squamous
-      cell carcinoma. - p16 immunostain pending.  Addendum Diagnosis - On D, p16
-      immunostain shows rare positivity (<1% of tumor cells). Controls
-      appropriate. - p16 immunostain is being performed on C, and will be
-      reported as an addendum.  Addendum Diagnosis On C, p16
-      immunohistochemical stain is negative.
+      C.  Posterior commissure; biopsy:  - Invasive squamous cell carcinoma,
+      keratinizing type. - p16 immunostain to follow.  Addendum Diagnosis: For
+      part D, p16 immunostain highlights rare tumor cells (<1%); controls work
+      appropriately. - p16 immunostain on part C is in progress and will follow
+      in a second addendum.  Addendum Diagnosis: For part C, p16
+      immunohistochemistry is negative.
     output:
       extractions:
-        - evidence: ["On C, p16 immunohistochemical stain is negative."]
+        - evidence: ["For part C, p16 immunohistochemistry is negative."]
           justification: p16 IHC on part C; pending at first, resulted in the second addendum, so one entry.
           assertion: affirmed
-          value: "p16 immunohistochemical stain"
+          value: "p16 immunohistochemistry"
           test_type: p16_ihc
           specimen_label: "C"
-        - evidence: ["On D, p16 immunostain shows rare positivity (<1% of tumor cells)."]
+        - evidence: ["For part D, p16 immunostain highlights rare tumor cells (<1%)"]
           justification: Separate p16 IHC on part D.
           assertion: affirmed
           value: "p16 immunostain"
           test_type: p16_ihc
           specimen_label: "D"
       summary: Two p16 tests on two specimens. No HPV ISH, PD-L1, or molecular testing reported.
-  - excerpt: "Right maxillary gingiva; biopsy: GMS stain highlights surface fungal spores. PD-L1 (22C3) shows a CPS of 50."
+  - excerpt: "Left buccal mucosa; biopsy: PAS stain highlights superficial fungal hyphae. PD-L1 (22C3) combined positive score: 15."
     output:
       extractions:
-        - evidence: ["PD-L1 (22C3) shows a CPS of 50."]
+        - evidence: ["PD-L1 (22C3) combined positive score: 15."]
           justification: PD-L1 IHC by clone 22C3, scored as CPS. The single specimen is unlabeled.
           assertion: affirmed
           value: "PD-L1 (22C3)"
           test_type: pdl1_ihc
           specimen_label: null
-      summary: GMS is a special stain and out of scope.
+      summary: PAS is a special stain and out of scope.
+  - excerpt: >-
+      B.  Right parotid gland; parotidectomy:  - Salivary duct carcinoma,
+      high grade.  Immunostains performed on B: HER2 is positive (3+), and
+      androgen receptor is positive in 80% of tumor cells. Tumor cells are
+      also positive for CK7 and GCDFP15.
+    output:
+      extractions:
+        - evidence: ["HER2 is positive (3+)"]
+          justification: HER2 is a listed biomarker immunostain, performed on part B.
+          assertion: affirmed
+          value: "HER2"
+          test_type: biomarker_ihc
+          specimen_label: "B"
+        - evidence: ["androgen receptor is positive in 80% of tumor cells"]
+          justification: AR is a separate listed biomarker, so a separate entry.
+          assertion: affirmed
+          value: "androgen receptor"
+          test_type: biomarker_ihc
+          specimen_label: "B"
+      summary: HER2 and AR on part B. CK7 and GCDFP15 are diagnostic stains, out of scope.

@@ -62,12 +62,16 @@ def scripted_pathology_responder(messages, schema, meta):
                 "Left tongue; excision",
                 label="A",
                 site="Left tongue",
+                site_source="designation",
+                material="submitted_tissue",
             ),
             item(
                 ["B.  Left neck; dissection:"],
                 "Left neck; dissection",
                 label="B",
                 site="Left neck",
+                site_source="designation",
+                material="submitted_tissue",
             ),
         )
     if f == "procedure_type":
@@ -119,6 +123,13 @@ def scripted_pathology_responder(messages, schema, meta):
         )
     if f == "test_result":
         return answer(
-            item(["p16 immunostain is negative"], "negative", category="negative")
+            item(
+                ["p16 immunostain is negative"],
+                "negative",
+                category="negative",
+                percent_cells=None,
+                intensity=None,
+                pattern=None,
+            )
         )
     raise AssertionError(f"unexpected field {f}")

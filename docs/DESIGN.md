@@ -252,21 +252,37 @@ Pathology DAG (run/display order):
 `specimen` -> {`procedure_type`, `carcinoma_status` -> {`histology`, `keratinization`}, `dysplasia_status` -> `dysplasia_grade`};
 `ancillary_test` -> {`test_result`, `pdl1_score` (only if test_type = pdl1_ihc)}.
 
-**Defaults chosen in the specs, pending the user's review:**
+**Spec rules.** Items 2 and 4–9 were reviewed with the user on 2026-11-06 after the 4-model
+smoke run; items 1 and 3 are still defaults awaiting review.
 1. carcinoma_status counts carcinoma in situ and non-carcinoma malignancies (lymphoma,
    melanoma, sarcoma) as positive. histology records the type, and `invasion`
    (invasive / in_situ / microinvasive / not_stated) separates CIS from invasive tumour. CIS is
    also captured as dysplasia_grade = carcinoma_in_situ, per the user's field list.
 2. negative has a `basis` attribute: explicit_negative ("negative for carcinoma") vs
-   benign_diagnosis (e.g. "benign prostatic tissue"; absence implied, not stated).
+   non_malignant_diagnosis (benign, reactive, treatment effect, benign neoplasm, or dysplasia
+   short of CIS; absence implied, not stated). Ancillary-test text ("% of tumor cells") is not a
+   diagnosis; a part whose only statement is a test result abstains, and the rollup flags it
+   `no_diagnosis_stated` (a structural flag, with no inference about the part's content).
 3. dysplasia_status: silence means abstain. Only an explicit "no dysplasia" is negative.
 4. Grades stay in the report's own system. mild/moderate/severe/CIS and low/high-grade are
    separate categories and are never converted. A range produces one extraction per endpoint.
+   A non-standard degree word ("markedly dysplastic") is `other`, with the word verbatim.
+   Extent words ("focal") are not grades. Abstaining on grade leaves dysplasia_status intact.
 5. Test results use the pathologist's stated call. Raw scores without a call ("rare positivity
    <1%", "CPS 50") are `result_without_interpretation`. Pending followed by a resulted addendum
-   gives both extractions, and the rollup prefers the resulted one.
+   gives both extractions, and the rollup prefers the resulted one. Stain descriptors are
+   copied verbatim into `percent_cells` / `intensity` / `pattern`. Guideline interpretation
+   (e.g. p16 >=70% nuclear+cytoplasmic for oropharyngeal SCC) is NOT done by the LLM. It is
+   planned as a deterministic, versioned rule layer at patient level, because it depends on
+   the primary site and on which guideline version applies.
 6. procedure_type categories: biopsy, FNA, other cytology, excision, resection,
    lymph_node_dissection, other. Neck dissection is its own category.
 7. ancillary tests in scope: p16 IHC, HPV ISH/PCR/unspecified, EBV ISH (EBER), PD-L1 IHC,
-   molecular panels, and single-gene molecular. Routine diagnostic IHC and special stains are
-   excluded.
+   biomarker IHC (exactly: HER2, AR, MMR proteins, pan-TRK, ALK, ROS1, Ki-67, p53, NUT),
+   molecular panels, and single-gene molecular. Other diagnostic IHC and special stains are
+   excluded (cost: one entity plus one result call per stain; meaning is already in histology).
+8. Specimens include consult parts (outside slides/blocks), with `material` recording what was
+   received. `site_source` records where `site` came from. The clinical history is used only
+   for a single-specimen report whose history names exactly one site.
+9. Evidence correction must not silently drop items. If a corrected answer has fewer
+   extractions than the unverified one, the earlier answer is kept with status flagged.

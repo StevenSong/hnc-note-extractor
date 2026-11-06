@@ -1,5 +1,5 @@
 name: pdl1_score
-version: 1
+version: 2
 doc_type: pathology_report
 kind: attribute
 order: 100
@@ -32,17 +32,18 @@ attributes:
     description: Antibody clone as written (e.g. "22C3"), or null if not stated.
 examples:
   - excerpt: >-
-      PD-L1 (22C3) shows a CPS of 50. ... Interpretive Guidelines: The tumor
-      proportion score (TPS) is the percentage of viable tumor cells showing
-      partial or complete membrane staining ... the maximum score is capped at 100.
+      PD-L1 (22C3) combined positive score: 15. ... Methodology: TPS is the
+      share of viable tumor cells with membranous staining at any intensity;
+      CPS also counts stained lymphocytes and macrophages and is reported up to
+      a maximum of 100.
     target: 'ONE ancillary test: "PD-L1 (22C3)" (test_type=pdl1_ihc, specimen_label=null)'
     output:
       extractions:
-        - evidence: ["PD-L1 (22C3) shows a CPS of 50."]
+        - evidence: ["PD-L1 (22C3) combined positive score: 15."]
           justification: CPS stated with clone.
           assertion: affirmed
-          value: "CPS of 50"
+          value: "combined positive score: 15"
           category: cps
-          score: "50"
+          score: "15"
           clone: "22C3"
-      summary: Only CPS is reported. TPS appears only in the methodology text, and "capped at 100" is not a result.
+      summary: Only CPS is reported. TPS appears only in the methodology text, and "maximum of 100" is not a result.

@@ -37,12 +37,32 @@ def _load_run(run_dir: Path) -> dict:
     return json.loads(p.read_text())
 
 
+def read_doc_ids_file(path: Path) -> list[str]:
+    """One doc id per line; text after '#' and blank lines are ignored."""
+    ids = []
+    for line in path.read_text().splitlines():
+        s = line.split("#", 1)[0].strip()
+        if s:
+            ids.append(s)
+    if not ids:
+        sys.exit(f"{path}: no doc ids")
+    if len(set(ids)) != len(ids):
+        dup = sorted(i for i, n in Counter(ids).items() if n > 1)
+        sys.exit(f"{path}: duplicate doc ids {dup}")
+    return ids
+
+
 def _select_docs(settings: dict) -> list[Document]:
     docs = list(read_jsonl(Path(settings["docs"])))
     ids = settings.get("doc_ids")
     if ids:
         wanted = set(ids)
         docs = [d for d in docs if d.doc_id in wanted]
+        missing = wanted - {d.doc_id for d in docs}
+        if missing:
+            sys.exit(
+                f"{len(missing)} requested doc ids not in {settings['docs']}: {sorted(missing)}"
+            )
     if settings.get("limit"):
         docs = docs[: settings["limit"]]
     return docs
@@ -53,6 +73,26 @@ def _doc_type(docs: list[Document]) -> str:
     if len(types) != 1:
         sys.exit(f"expected one doc type per run, got {sorted(types)}")
     return types.pop()
+
+
+def _doc_filter(a: argparse.Namespace, prev: dict) -> dict:
+    """Document filter settings: new flags override the saved run.json values."""
+    if a.all_docs:
+        if a.limit:
+            sys.exit("--all-docs and --limit are exclusive")
+        return {"limit": None, "doc_ids": None, "doc_ids_file": None}
+    out = {"limit": a.limit if a.limit is not None else prev.get("limit")}
+    if a.doc_ids:
+        out.update(doc_ids=a.doc_ids.split(","), doc_ids_file=None)
+    elif a.doc_ids_file:
+        # The resolved ids are saved, so later edits to the file don't change this run.
+        out.update(
+            doc_ids=read_doc_ids_file(a.doc_ids_file),
+            doc_ids_file=str(a.doc_ids_file),
+        )
+    else:
+        out.update(doc_ids=prev.get("doc_ids"), doc_ids_file=prev.get("doc_ids_file"))
+    return out
 
 
 def cmd_run(a: argparse.Namespace) -> None:
@@ -72,10 +112,7 @@ def cmd_run(a: argparse.Namespace) -> None:
     settings = {
         "docs": str(a.docs) if a.docs else saved["docs"],
         "specs": str(a.specs) if a.specs else (saved or {}).get("specs", "specs"),
-        "limit": a.limit if a.limit is not None else (saved or {}).get("limit"),
-        "doc_ids": (
-            a.doc_ids.split(",") if a.doc_ids else (saved or {}).get("doc_ids")
-        ),
+        **_doc_filter(a, saved or {}),
         "model": model.model_dump(mode="json"),
         "model_fingerprint": model.fingerprint(),
     }
@@ -277,7 +314,18 @@ def main(argv: list[str] | None = None) -> None:
         help="comma-separated subset of fields to run (upstream must be done)",
     )
     sp.add_argument("--limit", type=int, help="only the first N documents")
-    sp.add_argument("--doc-ids", help="comma-separated doc ids")
+    ids = sp.add_mutually_exclusive_group()
+    ids.add_argument("--doc-ids", help="comma-separated doc ids")
+    ids.add_argument(
+        "--doc-ids-file",
+        type=Path,
+        help="file with one doc id per line ('#' comments allowed), e.g. configs/eval/path-smoke.txt",
+    )
+    ids.add_argument(
+        "--all-docs",
+        action="store_true",
+        help="clear a saved --limit/--doc-ids filter and run every document",
+    )
     sp.add_argument(
         "--concurrency", type=int, default=16, help="parallel requests to the server"
     )

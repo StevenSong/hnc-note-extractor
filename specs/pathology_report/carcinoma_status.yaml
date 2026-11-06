@@ -1,5 +1,5 @@
 name: carcinoma_status
-version: 1
+version: 2
 doc_type: pathology_report
 kind: attribute
 order: 30
@@ -23,8 +23,9 @@ instruction: |
     with assertion uncertain.
   - negative requires that the specimen has a stated diagnosis: either an
     explicit negative ("negative for carcinoma", "no malignancy identified",
-    "no tumor seen") or a benign-only diagnosis ("benign prostatic tissue",
-    "active esophagitis", "squamous mucosa with mild dysplasia") with no
+    "no tumor seen", "no residual carcinoma") or a non-malignant diagnosis
+    ("benign prostatic tissue", "active esophagitis", "pleomorphic adenoma",
+    "squamous mucosa with mild dysplasia", "treatment effect") with no
     malignancy and no suspicion. Record which with `basis`.
   - Dysplasia alone (any grade short of carcinoma in situ) is negative here;
     dysplasia is captured by its own field.
@@ -34,8 +35,12 @@ instruction: |
     with carcinoma and clear margins is positive).
   - If an addendum or revised diagnosis changes the status, report each
     statement as a separate extraction and say which supersedes.
+  - Ancillary-test text (IHC, ISH, or molecular results) is not a diagnosis,
+    including scoring wording such as "positive in 30% of tumor cells". It
+    neither establishes nor excludes carcinoma for the specimen.
   - Abstain if no diagnosis is stated for this specimen (e.g. the diagnosis is
-    only "see addendum"/"pending", or the part appears only in the gross).
+    only "see addendum"/"pending", the part appears only in the gross, or the
+    only statement about it is an ancillary-test result).
 value_description: The diagnostic statement as worded, e.g. "Invasive squamous cell carcinoma" or "Negative for carcinoma".
 categories:
   positive: Carcinoma (incl. in situ) or another malignancy is diagnosed in this specimen.
@@ -48,23 +53,26 @@ attributes:
     nullable: true
     values:
       explicit_negative: The report explicitly states absence of carcinoma/malignancy/tumor.
-      benign_diagnosis: Only a benign diagnosis is given; absence of carcinoma is implied, not stated.
+      non_malignant_diagnosis: >-
+        Only a non-malignant diagnosis is given (benign, reactive, inflammatory,
+        treatment effect, benign neoplasm, or dysplasia short of carcinoma in
+        situ); absence of carcinoma is implied, not stated.
     description: For category negative only; null for every other category.
 examples:
   - excerpt: >-
-      B.    Right true vocal cord mid superior; biopsy:    - Squamous mucosa
-      with mild dysplasia and focal koilocytic change.  C.    Anterior
-      subglottis; biopsy:    - Invasive keratinizing squamous cell carcinoma.
-    target: 'ONE specimen: "Right true vocal cord mid superior; biopsy" (label=B)'
+      B.  Left aryepiglottic fold; biopsy:  - Squamous mucosa with mild
+      dysplasia and parakeratosis.  C.  Posterior commissure; biopsy:  -
+      Invasive squamous cell carcinoma, keratinizing type.
+    target: 'ONE specimen: "Left aryepiglottic fold; biopsy" (label=B)'
     output:
       extractions:
-        - evidence: ["Squamous mucosa with mild dysplasia and focal koilocytic change."]
-          justification: Part B's diagnosis is benign squamous mucosa with mild dysplasia; mild dysplasia is not carcinoma and no malignancy is mentioned for B.
+        - evidence: ["Squamous mucosa with mild dysplasia and parakeratosis."]
+          justification: Part B's diagnosis is squamous mucosa with mild dysplasia; mild dysplasia is not carcinoma and no malignancy is mentioned for B.
           assertion: affirmed
-          value: "Squamous mucosa with mild dysplasia and focal koilocytic change."
+          value: "Squamous mucosa with mild dysplasia and parakeratosis."
           category: negative
-          basis: benign_diagnosis
-      summary: The carcinoma belongs to part C, which is out of scope. Part B is negative by benign diagnosis.
+          basis: non_malignant_diagnosis
+      summary: The carcinoma belongs to part C, which is out of scope. Part B is negative by a non-malignant diagnosis.
   - excerpt: "A. Left neck mass, FNA: - Positive for malignant cells, consistent with metastatic squamous cell carcinoma."
     target: 'ONE specimen: "Left neck mass, FNA" (label=A)'
     output:
@@ -102,3 +110,14 @@ examples:
           category: negative
           basis: explicit_negative
       summary: Prior gingival carcinoma excluded as history.
+  - excerpt: >-
+      B.  Left base of tongue; biopsy:  - Invasive squamous cell carcinoma.
+      C.  Right base of tongue; biopsy:  Addendum Diagnosis: On C, p16
+      immunostain shows patchy staining in approximately 10% of tumor cells.
+    target: 'ONE specimen: "Right base of tongue; biopsy" (label=C)'
+    output:
+      extractions: []
+      summary: >-
+        Part C has no diagnosis line. Its only statement is a p16 result, and
+        "of tumor cells" is scoring wording, not a diagnosis. The carcinoma
+        belongs to part B, which is out of scope. Abstain.

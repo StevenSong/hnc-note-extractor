@@ -1,5 +1,5 @@
 name: procedure_type
-version: 1
+version: 2
 doc_type: pathology_report
 kind: attribute
 order: 20
@@ -36,11 +36,11 @@ categories:
   lymph_node_dissection: Neck dissection or other lymphadenectomy.
   other: A stated procedure that fits none of the above (e.g. tooth extraction, curettage, arthroplasty).
 examples:
-  - excerpt: "C.    Anterior subglottis; biopsy:    - Invasive keratinizing squamous cell carcinoma."
-    target: 'ONE specimen: "Anterior subglottis; biopsy" (label=C, site=Anterior subglottis)'
+  - excerpt: "C.  Posterior commissure; biopsy:  - Invasive squamous cell carcinoma, keratinizing type."
+    target: 'ONE specimen: "Posterior commissure; biopsy" (label=C, site=Posterior commissure)'
     output:
       extractions:
-        - evidence: ["Anterior subglottis; biopsy:"]
+        - evidence: ["Posterior commissure; biopsy:"]
           justification: The part designation names a biopsy.
           assertion: affirmed
           value: "biopsy"

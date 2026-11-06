@@ -1,5 +1,5 @@
 name: dysplasia_status
-version: 1
+version: 2
 doc_type: pathology_report
 kind: attribute
 order: 60
@@ -25,18 +25,18 @@ categories:
   positive: Dysplasia / premalignant intraepithelial lesion present.
   negative: Explicitly stated to be absent.
 examples:
-  - excerpt: "A.    GE junction at 55 cm; biopsy:    - Specialized columnar mucosa, consistent with Barrett's esophagus. - No dysplasia."
-    target: 'ONE specimen: "GE junction at 55 cm; biopsy" (label=A)'
+  - excerpt: "A.  Distal esophagus at 37 cm; biopsy:  - Columnar mucosa with goblet cell metaplasia, compatible with Barrett esophagus. - Negative for dysplasia."
+    target: 'ONE specimen: "Distal esophagus at 37 cm; biopsy" (label=A)'
     output:
       extractions:
-        - evidence: ["- No dysplasia."]
+        - evidence: ["- Negative for dysplasia."]
           justification: Explicitly negative for part A.
           assertion: affirmed
-          value: "No dysplasia"
+          value: "Negative for dysplasia"
           category: negative
       summary: Explicit negative.
-  - excerpt: "B.    Right true vocal cord mid superior; biopsy:    - Squamous mucosa with mild dysplasia and focal koilocytic change."
-    target: 'ONE specimen: "Right true vocal cord mid superior; biopsy" (label=B)'
+  - excerpt: "B.  Left aryepiglottic fold; biopsy:  - Squamous mucosa with mild dysplasia and parakeratosis."
+    target: 'ONE specimen: "Left aryepiglottic fold; biopsy" (label=B)'
     output:
       extractions:
         - evidence: ["Squamous mucosa with mild dysplasia"]
@@ -45,8 +45,8 @@ examples:
           value: "mild dysplasia"
           category: positive
       summary: Dysplasia present (grade is a separate field).
-  - excerpt: "A. Esophagus at 24: - Active esophagitis, with up to 20 intraepithelial eosinophils per HPF."
-    target: 'ONE specimen: "Esophagus at 24" (label=A)'
+  - excerpt: "A. Right tonsil; tonsillectomy: - Reactive lymphoid hyperplasia with crypt abscesses."
+    target: 'ONE specimen: "Right tonsil; tonsillectomy" (label=A)'
     output:
       extractions: []
       summary: Dysplasia is not mentioned; a benign diagnosis alone is not an explicit negative.

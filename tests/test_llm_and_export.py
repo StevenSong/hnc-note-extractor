@@ -136,3 +136,18 @@ def test_http_client_4xx_not_retried(specs):
     with pytest.raises(RuntimeError, match="HTTP 400"):
         client.chat([{"role": "user", "content": "x"}], None, None, {})
     assert len(seen) == 1
+
+
+def test_http_client_drops_max_tokens_when_context_too_small():
+    msg = (
+        "'max_tokens' or 'max_completion_tokens' is too large: 49152. This model's "
+        "maximum context length is 65536 tokens and your request has 20000 input tokens"
+    )
+    transport, seen = _fake_server([(400, {"error": {"message": msg}}), _ok("{}")])
+    cfg = ModelConfig(name="q", max_tokens=49152)
+    client = OpenAICompatClient(
+        cfg, transport=transport, backoff_s=0, transport_retries=0
+    )
+    comp = client.chat([{"role": "user", "content": "x"}], None, None, {})
+    assert comp.content == "{}"
+    assert seen[0]["max_tokens"] == 49152 and "max_tokens" not in seen[1]

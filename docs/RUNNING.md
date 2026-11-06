@@ -26,22 +26,29 @@ docker compose --profile $M logs -f        # wait for "Application startup compl
 # a) Probe: one tiny extraction, with and without JSON-schema decoding
 docker compose run --rm runner probe --model configs/models/$M.yaml
 
-# b) Smoke run on 10 reports, then check it
+# b) Smoke run on the pinned 20-report set, then check it
 docker compose run --rm runner run --run-dir runs/path-$M \
     --docs data/ingested/dev-test50/pathology_report.jsonl \
-    --model configs/models/$M.yaml --limit 10
+    --model configs/models/$M.yaml --doc-ids-file configs/eval/path-smoke.txt
 docker compose run --rm runner status --run-dir runs/path-$M
 
 # c) Full run (all 220 reports). Resumable: rerunning skips finished calls.
-docker compose run --rm runner run --run-dir runs/path-$M --limit 0
+docker compose run --rm runner run --run-dir runs/path-$M --all-docs
 docker compose run --rm runner export --run-dir runs/path-$M
 #   -> runs/path-$M/export/review.xlsx, note_extractions.jsonl, report_rollup.jsonl
 
 docker compose --profile $M down
 ```
 
-`--limit 0` clears the saved 10-document limit. Other run settings are also saved in
-`runs/<dir>/run.json`, so a bare `run --run-dir ...` resumes with the same settings.
+`--all-docs` clears the saved document filter (`--doc-ids-file`, `--doc-ids` or `--limit`).
+Other run settings are also saved in `runs/<dir>/run.json`, so a bare `run --run-dir ...`
+resumes with the same settings. A doc-ids file is resolved when the run starts and the ids
+are saved, so editing the file later doesn't change an existing run.
+
+The smoke set `configs/eval/path-smoke.txt` lists each report with what it exercises. When
+you change it, read the reports you add. `tests/test_spec_examples.py` fails if a spec
+example shares an 8-word run with any ingested report (wording found in 5 or more reports
+counts as boilerplate), so the examples can't leak answers for the reports we score.
 
 ## 1b. Smoke runs via SLURM (all models in parallel, one GPU each)
 
@@ -56,7 +63,8 @@ SBATCH_ARGS="-p <partition>" slurm/submit_smoke.sh     # extra sbatch flags
 squeue --me
 ```
 
-Each job writes to `runs/smoke/<model>-j<jobid>/`: the run dir itself, plus
+Jobs run the pinned set `configs/eval/path-smoke.txt` (override with `DOC_IDS_FILE=...`, or
+`LIMIT=N` for the first N reports). Each job writes to `runs/smoke/<model>-j<jobid>/`: the run dir itself, plus
 `export/review.xlsx` and `logs/` (`meta.txt` provenance: git commit, image digest,
 vLLM version, HF revision, GPU; `git.diff`; `server.log`; `probe.log`, `run.log`,
 `status.log`; `steps.tsv`). SLURM's own log is `runs/smoke/slurm-smoke-<model>-<jobid>.out`.
@@ -70,8 +78,8 @@ its cleanup can't run, remove its containers by hand: `docker compose -p hnc-smo
 
 1. The output of `probe` for each model. It tells us whether `structured_output: json_schema`
    works with that model's reasoning parser. The defaults are `json_schema` for Qwen and Gemma,
-   which is documented to work, and `none` (parse, validate, retry) for Muse and Nemotron,
-   which is undocumented.
+   which is documented to work, and for Nemotron (probe passed); `none` (parse, validate,
+   retry) for Muse.
 2. The output of `status` after the smoke run.
 3. Any server errors from `docker compose logs`.
 4. Later: `review.xlsx` with your verdicts filled in.
