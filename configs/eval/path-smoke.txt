@@ -9,7 +9,7 @@
 ec176897-70bd-4c57-9636-54755bb578f2  # consult slides only, no diagnosis: specimen with material=outside_slides, carcinoma abstains
 44574ae2-dba7-4daa-a58b-e8440299c243  # unlabeled leading lymph node part; p16 negative
 03ee00cf-1e8f-4e90-8a15-08d3f51f5ae1  # orphan leading diagnosis line; CIS; "markedly" dysplastic -> grade other
-957cd9d6-33c3-4d1c-a98e-44de92b80ea5  # simple single-part benign report
+957cd9d6-33c3-4d1c-a98e-44de92b80ea5  # single part, diagnosis masked by de-id ("XXX XXXXXXXX"): every field should abstain (no_diagnosis_stated)
 30529140-4403-4b95-a3f8-a5a368602d53  # 4 parts; p16 pending -> addendum negative (C) and rare <1% (D); mild dysplasia; Barrett's no dysplasia. Spec examples no longer copied from it
 #
 # Ancillary tests
@@ -28,7 +28,7 @@ fa59e511-8658-4879-ba2d-7f64fbb91df2  # lung FNA cytology, poorly differentiated
 #
 # Consults, non-HNC, and no-specimen edge cases
 ad3797a6-aaf2-4112-abf3-5712e1a164ac  # consult slides WITH a diagnosis; parts numbered 1/2 in diagnosis but "A" in materials; non-keratinizing SCC, metastatic in neck
-fe970d4c-30cc-4d2f-b0a0-c161714d15ce  # prostate, 12 benign parts; leading summary line is not a part; part L has no diagnosis
+fe970d4c-30cc-4d2f-b0a0-c161714d15ce  # prostate, 12 benign parts; leading summary line is not a part; text ends at "L) ... needle biopsy:" (likely synthetic truncation): L negative or undiagnosed both accepted for now
 e9a11d98-bd14-41ac-ba52-5a77373ac4c6  # 119-char smear review fragment: no specimen designation
 #
 # Not included: a truly non-diagnostic specimen (none found by keyword search in dev-test50).

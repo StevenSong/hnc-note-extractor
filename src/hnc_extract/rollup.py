@@ -11,6 +11,9 @@ from hnc_extract.dag import Node
 CARCINOMA_PRECEDENCE = ["positive", "suspicious", "negative", "non_diagnostic"]
 # Ordinal for the "worst grade". low/high-grade are two-tier terms placed between
 # the three-tier grades; this is a convention for sorting only, not a mapping.
+# Histology invasion values that make a carcinoma invasive (microinvasive /
+# superficially invasive carcinoma is invasive carcinoma).
+INVASIVE = {"invasive", "microinvasive"}
 GRADE_ORDER = [
     "mild",
     "low_grade",
@@ -36,6 +39,27 @@ def _specimen_flags(nodes: dict[tuple[str, str], Node], path: str) -> list[str]:
     carc = nodes.get(("carcinoma_status", path))
     if carc is not None and carc.status == "done" and not carc.items:
         flags.append("no_diagnosis_stated")
+    return flags
+
+
+def _report_flags(specimens: list[dict]) -> list[str]:
+    """Structural review flags for the whole report (no clinical inference).
+
+    These catch specimen lists that did not reconcile with the diagnoses, as in
+    scrambled outside consults whose part letters and site-headed diagnoses do
+    not line up. The rollup does not pick an interpretation; it asks for review.
+    """
+    flags = []
+    labels = [s["label"] for s in specimens if s["label"]]
+    if len(labels) != len(set(labels)):
+        flags.append("duplicate_specimen_labels")
+    diagnosed = [s["carcinoma_status"] is not None for s in specimens]
+    if any(s["label"] and not d for s, d in zip(specimens, diagnosed)) and any(
+        not s["label"] and d for s, d in zip(specimens, diagnosed)
+    ):
+        flags.append("specimen_list_unreconciled")
+    if any(diagnosed) and not all(diagnosed):
+        flags.append("some_specimens_undiagnosed")
     return flags
 
 
@@ -73,6 +97,7 @@ def pathology_rollup(nodes: dict[tuple[str, str], Node]) -> dict:
                 return n.items if n is not None else []
 
             carc = [it["category"] for it in items("carcinoma_status")]
+            hist = items("histology")
             specimens.append(
                 {
                     "path": path,
@@ -83,8 +108,23 @@ def pathology_rollup(nodes: dict[tuple[str, str], Node]) -> dict:
                     "procedure": [it["category"] for it in items("procedure_type")],
                     "carcinoma_status": _top(carc, CARCINOMA_PRECEDENCE),
                     "carcinoma_status_conflict": len(set(carc)) > 1,
-                    "histology": [it["value"] for it in items("histology")],
-                    "invasion": sorted({it["invasion"] for it in items("histology")}),
+                    "histology": [it["value"] for it in hist],
+                    # invasion of affirmed histology only; uncertain ones
+                    # ("suspicious for superficial invasion") are kept apart
+                    "invasion": sorted(
+                        {
+                            it["invasion"]
+                            for it in hist
+                            if it.get("assertion", "affirmed") == "affirmed"
+                        }
+                    ),
+                    "invasion_uncertain": sorted(
+                        {
+                            it["invasion"]
+                            for it in hist
+                            if it.get("assertion") == "uncertain"
+                        }
+                    ),
                     "keratinization": sorted(
                         {it["category"] for it in items("keratinization")}
                     ),
@@ -125,17 +165,20 @@ def pathology_rollup(nodes: dict[tuple[str, str], Node]) -> dict:
     carc_all = [s["carcinoma_status"] for s in specimens if s["carcinoma_status"]]
     dys_all = [s["dysplasia_status"] for s in specimens if s["dysplasia_status"]]
     grades = sorted({g for s in specimens for g in s["dysplasia_grades"]})
+    invasive = any(INVASIVE & set(s["invasion"]) for s in specimens)
     return {
         "report_carcinoma_status": _top(carc_all, CARCINOMA_PRECEDENCE)
         or "not_assessed",
-        "report_invasive_carcinoma": any(
-            "invasive" in s["invasion"] for s in specimens
-        ),
+        "report_invasive_carcinoma": invasive,
+        # uncertain invasion somewhere, without affirmed invasion in the report
+        "report_invasion_suspected": not invasive
+        and any(INVASIVE & set(s["invasion_uncertain"]) for s in specimens),
         "report_dysplasia_status": _top(dys_all, ["positive", "negative"])
         or "not_mentioned",
         "worst_dysplasia_grade": _top(grades, GRADE_ORDER[::-1]),
         "specimens": specimens,
         "tests": tests,
+        "review_flags": _report_flags(specimens),
         "incomplete_fields": incomplete,
         "flagged_fields": flagged,
     }

@@ -181,7 +181,10 @@ def _build_output_model(spec: FieldSpec) -> type[BaseModel]:
         "assertion": (
             Literal["affirmed", "uncertain"],
             Field(
-                description="affirmed: stated as fact; uncertain: hedged, possible, or a differential."
+                description=(
+                    "affirmed: stated as fact (including 'consistent with'); "
+                    "uncertain: hedged, possible, or a differential."
+                )
             ),
         ),
         "value": (str, Field(description=spec.value_description)),

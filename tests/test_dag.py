@@ -1,11 +1,13 @@
+import json
 import shutil
 
+import pytest
 import yaml
 from conftest import SPECS, make_doc, scripted_pathology_responder
 
 from hnc_extract.dag import run, traverse
 from hnc_extract.llm import MockClient, ModelConfig
-from hnc_extract.rollup import pathology_rollup
+from hnc_extract.rollup import _report_flags, pathology_rollup
 from hnc_extract.spec import load_specs
 from hnc_extract.store import Store
 
@@ -148,3 +150,63 @@ def test_rollup_flags_specimen_without_diagnosis(specs, tmp_path):
     flags = {s["label"]: s["review_flags"] for s in ru["specimens"]}
     assert flags == {"A": [], "B": ["no_diagnosis_stated"]}
     assert ru["specimens"][0]["material"] == "submitted_tissue"
+
+
+def _histology_responder(invasion, assertion):
+    def responder(messages, schema, meta):
+        if meta["field"] == "histology":
+            out = json.loads(scripted_pathology_responder(messages, schema, meta))
+            for it in out["extractions"]:
+                it["invasion"], it["assertion"] = invasion, assertion
+            return json.dumps(out)
+        return scripted_pathology_responder(messages, schema, meta)
+
+    return responder
+
+
+@pytest.mark.parametrize(
+    "invasion,assertion,invasive,suspected",
+    [
+        ("invasive", "affirmed", True, False),
+        ("microinvasive", "affirmed", True, False),  # superficially invasive SCC
+        ("in_situ", "affirmed", False, False),
+        ("microinvasive", "uncertain", False, True),  # suspicious for invasion
+        ("in_situ", "uncertain", False, False),
+    ],
+)
+def test_rollup_invasion(specs, tmp_path, invasion, assertion, invasive, suspected):
+    store = Store(tmp_path / "c.sqlite")
+    doc = make_doc()
+    _run(specs, store, [doc], responder=_histology_responder(invasion, assertion))
+    ru = pathology_rollup(traverse(doc, specs, store, MODEL.fingerprint()))
+    assert ru["report_invasive_carcinoma"] is invasive
+    assert ru["report_invasion_suspected"] is suspected
+    a = ru["specimens"][0]
+    assert (a["invasion"], a["invasion_uncertain"]) == (
+        ([invasion], []) if assertion == "affirmed" else ([], [invasion])
+    )
+
+
+def _spec(label, carc):
+    return {"label": label, "carcinoma_status": carc}
+
+
+@pytest.mark.parametrize(
+    "specimens,flags",
+    [
+        ([_spec("A", "positive"), _spec("B", "negative")], []),
+        ([_spec("A", None)], []),  # nothing diagnosed: per-specimen flag covers it
+        ([_spec("A", "positive"), _spec("B", None)], ["some_specimens_undiagnosed"]),
+        # scrambled consult: lettered parts undiagnosed, site-headed diagnoses unlabeled
+        (
+            [_spec("A", None), _spec("B", None), _spec(None, "positive")],
+            ["specimen_list_unreconciled", "some_specimens_undiagnosed"],
+        ),
+        (
+            [_spec("B", "negative"), _spec("B", "positive")],
+            ["duplicate_specimen_labels"],
+        ),
+    ],
+)
+def test_report_review_flags(specimens, flags):
+    assert _report_flags(specimens) == flags

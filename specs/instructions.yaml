@@ -3,7 +3,7 @@
 #   system: static across ALL calls (maximizes vLLM prefix-cache reuse)
 #   user:   {DOC_LABEL} {ANCHOR_DATE} {DOC_TEXT} {FIELD_SECTION} {TARGET_SECTION}
 # Editing this file invalidates every cached call (it is part of each field's fingerprint).
-version: 2
+version: 3
 system: |
   ====================
   ROLE
@@ -41,9 +41,13 @@ system: |
 
   4. ASSERTION: affirmed or uncertain.
   affirmed = stated as fact. A semantically negative finding can be affirmed
-  (e.g. "negative for carcinoma" is an affirmed negative). uncertain = hedged
-  ("likely", "favor", "suggestive of"), possible ("cannot rule out"), or a
-  differential ("X vs Y").
+  (e.g. "negative for carcinoma" is an affirmed negative). Committed diagnostic
+  wording is affirmed: "consistent with", "compatible with", and "diagnostic
+  of" state a diagnosis, not a hedge. uncertain = hedged ("likely", "favor",
+  "suggestive of", "may represent"), possible ("cannot rule out", "suspicious
+  for"), or a differential ("X vs Y"). When the field has a category for the
+  hedge itself (e.g. a "suspicious" status), report that category with
+  assertion affirmed.
 
   5. TEMPORALITY (only when the field asks for it).
   frame is how the document frames the value AS OF THIS DOCUMENT: current

@@ -289,10 +289,12 @@ def write_workbook(
         ("doc_id", 14),
         ("report_carcinoma_status", 14),
         ("report_invasive_carcinoma", 10),
+        ("report_invasion_suspected", 10),
         ("report_dysplasia_status", 14),
         ("worst_dysplasia_grade", 14),
         ("specimens", 70),
         ("tests", 60),
+        ("review_flags", 24),
         ("incomplete_fields", 20),
         ("flagged_fields", 20),
     ]
@@ -309,6 +311,11 @@ def write_workbook(
             f"{s['label'] or '-'} {s['site'] or ''}: carcinoma={s['carcinoma_status']}"
             + (" (CONFLICT)" if s["carcinoma_status_conflict"] else "")
             + (f"; histology={'; '.join(s['histology'])}" if s["histology"] else "")
+            + (
+                f"; invasion uncertain={','.join(s['invasion_uncertain'])}"
+                if s.get("invasion_uncertain")
+                else ""
+            )
             + (
                 f"; keratinization={','.join(s['keratinization'])}"
                 if s["keratinization"]
