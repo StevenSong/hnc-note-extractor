@@ -221,6 +221,8 @@ __marimo__/
 data/
 # Run outputs contain document text and extractions (PHI on real data)
 runs/
+# Gold keys quote document text too
+gold/
 
 temp.*
 temp_*

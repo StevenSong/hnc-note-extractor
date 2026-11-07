@@ -69,6 +69,29 @@ def _final_results(items: list[dict]) -> list[dict]:
     return resulted or items
 
 
+def report_summary(specimens: list[dict]) -> dict:
+    """Report-level fields from specimen dicts (model rollups and gold alike).
+
+    Each specimen needs carcinoma_status, dysplasia_status, dysplasia_grades,
+    invasion (affirmed) and invasion_uncertain.
+    """
+    carc_all = [s["carcinoma_status"] for s in specimens if s["carcinoma_status"]]
+    dys_all = [s["dysplasia_status"] for s in specimens if s["dysplasia_status"]]
+    grades = sorted({g for s in specimens for g in s["dysplasia_grades"]})
+    invasive = any(INVASIVE & set(s["invasion"]) for s in specimens)
+    return {
+        "report_carcinoma_status": _top(carc_all, CARCINOMA_PRECEDENCE)
+        or "not_assessed",
+        "report_invasive_carcinoma": invasive,
+        # uncertain invasion somewhere, without affirmed invasion in the report
+        "report_invasion_suspected": not invasive
+        and any(INVASIVE & set(s["invasion_uncertain"]) for s in specimens),
+        "report_dysplasia_status": _top(dys_all, ["positive", "negative"])
+        or "not_mentioned",
+        "worst_dysplasia_grade": _top(grades, GRADE_ORDER[::-1]),
+    }
+
+
 def pathology_rollup(nodes: dict[tuple[str, str], Node]) -> dict:
     incomplete = sorted(
         {
@@ -162,20 +185,8 @@ def pathology_rollup(nodes: dict[tuple[str, str], Node]) -> dict:
                 }
             )
 
-    carc_all = [s["carcinoma_status"] for s in specimens if s["carcinoma_status"]]
-    dys_all = [s["dysplasia_status"] for s in specimens if s["dysplasia_status"]]
-    grades = sorted({g for s in specimens for g in s["dysplasia_grades"]})
-    invasive = any(INVASIVE & set(s["invasion"]) for s in specimens)
     return {
-        "report_carcinoma_status": _top(carc_all, CARCINOMA_PRECEDENCE)
-        or "not_assessed",
-        "report_invasive_carcinoma": invasive,
-        # uncertain invasion somewhere, without affirmed invasion in the report
-        "report_invasion_suspected": not invasive
-        and any(INVASIVE & set(s["invasion_uncertain"]) for s in specimens),
-        "report_dysplasia_status": _top(dys_all, ["positive", "negative"])
-        or "not_mentioned",
-        "worst_dysplasia_grade": _top(grades, GRADE_ORDER[::-1]),
+        **report_summary(specimens),
         "specimens": specimens,
         "tests": tests,
         "review_flags": _report_flags(specimens),

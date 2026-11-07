@@ -5,6 +5,9 @@
   status            node counts per field/status for a run dir
   export            JSONL + review workbook for a run dir
   probe             check a model server: reachability, JSON-schema decoding, reasoning field
+  gold-draft        align several runs (one model each) into a consensus gold draft + adjudication workbook
+  gold-import       adjudicated workbook -> gold.jsonl
+  score             compare a run against gold.jsonl
 
 A run dir holds one model's results for one document set:
   <run-dir>/run.json        settings (docs, specs, model config, doc filter)
@@ -153,11 +156,16 @@ def cmd_run(a: argparse.Namespace) -> None:
         print(f"{f:18s} {dict(c)}")
 
 
-def _traverse_all(run_dir: Path):
+def _traverse_all(run_dir: Path, specs_dir: Path | None = None):
+    """Rebuild a run's nodes from its cache.
+
+    specs_dir overrides the run's spec dir, e.g. a checkout of the specs the run
+    was made with: after a spec edit the cached calls no longer match.
+    """
     settings = _load_run(run_dir)
     model = ModelConfig.model_validate(settings["model"])
     docs = _select_docs(settings)
-    specs = load_specs(Path(settings["specs"]), _doc_type(docs))
+    specs = load_specs(specs_dir or Path(settings["specs"]), _doc_type(docs))
     store = Store(run_dir / "cache.sqlite")
     nodes = {d.doc_id: traverse(d, specs, store, model.fingerprint()) for d in docs}
     store.close()
@@ -178,6 +186,116 @@ def cmd_status(a: argparse.Namespace) -> None:
         st = {s: v for (ff, s), v in c.items() if ff == f}
         cs = {s: v for (ff, s), v in calls.items() if ff == f}
         print(f"{f:18s} nodes {st}  calls {cs}")
+
+
+def _views(run_dir: Path, specs_dir: Path | None = None):
+    from hnc_extract.gold import run_views
+    from hnc_extract.rollup import pathology_rollup
+
+    settings, model, docs, specs, nodes = _traverse_all(run_dir, specs_dir)
+    pending = sum(
+        n.status in ("pending", "blocked") for nd in nodes.values() for n in nd.values()
+    )
+    if pending:
+        sys.exit(
+            f"{run_dir}: {pending} nodes have no cached result under these specs. "
+            "If the specs changed since the run, pass --specs with the run's spec dir "
+            "(e.g. `git archive <commit> specs | tar -x -C <dir>`)."
+        )
+    if specs.doc_type != "pathology_report":
+        sys.exit(f"{run_dir}: gold/score support pathology_report only")
+    rollups = {d: pathology_rollup(n) for d, n in nodes.items()}
+    return model, docs, run_views(nodes, rollups), rollups
+
+
+def cmd_gold_draft(a: argparse.Namespace) -> None:
+    from hnc_extract import gold
+
+    views, docs, info = {}, None, {"runs": []}
+    for rd in a.run_dir:
+        model, d, v, _ = _views(rd, a.specs)
+        if model.name in views:
+            sys.exit(f"two runs of model {model.name!r}; pass one run per model")
+        ids = [x.doc_id for x in d]
+        if docs is not None and ids != [x.doc_id for x in docs]:
+            sys.exit(f"{rd}: different documents from {a.run_dir[0]}")
+        docs = d
+        views[model.name] = v
+        info["runs"].append(f"{model.name}: {rd}")
+    doc_ids = [d.doc_id for d in docs]
+    records = gold.draft(views, doc_ids)
+    rows = gold.review_rows(records, seed=a.seed, rate=a.spot_check_rate)
+    a.out.mkdir(parents=True, exist_ok=True)
+    gold.write_jsonl(a.out / "draft.jsonl", records)
+    meta = {
+        "created_utc": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
+        "runs": {m: str(rd) for m, rd in zip(views, a.run_dir)},
+        "specs": str(a.specs) if a.specs else "from each run.json",
+        "doc_ids": doc_ids,
+        "min_agree": gold.MIN_AGREE,
+        "spot_check_rate": a.spot_check_rate,
+        "seed": a.seed,
+    }
+    (a.out / "draft_meta.json").write_text(json.dumps(meta, indent=2))
+    info = {
+        **{k: v for k, v in meta.items() if k != "doc_ids"},
+        "n_documents": len(doc_ids),
+    }
+    gold.write_adjudication(a.out / "adjudicate.xlsx", records, rows, docs, views, info)
+    n_fields = sum(len(r["votes"]) for r in records)
+    reasons = Counter(r["reason"] for r in rows)
+    kinds = Counter(r["kind"] for r in records)
+    print(
+        f"{len(doc_ids)} docs, {kinds['specimen']} specimens, {kinds['test']} tests, "
+        f"{n_fields} field decisions; to review: {dict(reasons)}"
+    )
+    print(f"-> {a.out / 'adjudicate.xlsx'}")
+
+
+def cmd_gold_import(a: argparse.Namespace) -> None:
+    from hnc_extract import gold
+
+    records = gold.read_jsonl(a.dir / "draft.jsonl")
+    verdicts = gold.read_verdicts(a.dir / "adjudicate.xlsx")
+    known = {
+        f"{r['doc_id']}|{r['key']}|{v['field']}" for r in records for v in r["votes"]
+    }
+    unknown = sorted(set(verdicts) - known)
+    if unknown:
+        sys.exit(
+            f"{len(unknown)} row_ids in the workbook are not in draft.jsonl, e.g. {unknown[:3]}"
+        )
+    g = gold.build_gold(records, verdicts)
+    gold.write_jsonl(a.dir / "gold.jsonl", g.values())
+    n_s = sum(len(d["specimens"]) for d in g.values())
+    n_t = sum(len(d["tests"]) for d in g.values())
+    print(f"{len(g)} docs, {n_s} specimens, {n_t} tests -> {a.dir / 'gold.jsonl'}")
+
+
+def cmd_score(a: argparse.Namespace) -> None:
+    from hnc_extract import gold
+
+    g = {d["doc_id"]: d for d in gold.read_jsonl(a.gold)}
+    model, docs, views, rollups = _views(a.run_dir, a.specs)
+    missing = set(g) - set(views)
+    if missing:
+        sys.exit(f"{len(missing)} gold docs are not in run {a.run_dir}")
+    res = gold.score_run(g, views, rollups)
+    print(f"{model.name} vs {a.gold} ({len(g)} docs)")
+    for kind, c in res["items"].items():
+        m, n, e = c["matched"], c["missed"], c["extra"]
+        rec = m / (m + n) if m + n else float("nan")
+        prec = m / (m + e) if m + e else float("nan")
+        print(
+            f"  {kind:10s} matched {m:4d}  missed {n:3d}  extra {e:3d}  recall {rec:.3f}  precision {prec:.3f}"
+        )
+    for section in ("fields", "report"):
+        for f, c in res[section].items():
+            tot = c["agree"] + c["disagree"]
+            print(f"  {f:32s} {c['agree']:4d}/{tot:<4d} {c['agree'] / tot:.3f}")
+    if a.out:
+        a.out.write_text(json.dumps(res, indent=2, default=dict))
+        print(f"-> {a.out}")
 
 
 def cmd_export(a: argparse.Namespace) -> None:
@@ -337,6 +455,45 @@ def main(argv: list[str] | None = None) -> None:
         if name == "export":
             sp.add_argument("--out", type=Path)
 
+    sp = sub.add_parser("gold-draft")
+    sp.add_argument(
+        "--run-dir",
+        type=Path,
+        action="append",
+        required=True,
+        help="repeat: one run dir per model",
+    )
+    sp.add_argument("--out", type=Path, required=True)
+    sp.add_argument(
+        "--seed", type=int, default=0, help="seed for the spot-check sample"
+    )
+    sp.add_argument(
+        "--spot-check-rate",
+        type=float,
+        default=0.1,
+        help="fraction of consensus fields sent for review anyway (shared-error check)",
+    )
+    sp.add_argument(
+        "--specs",
+        type=Path,
+        help="spec dir the run(s) were made with (default: from run.json)",
+    )
+
+    sp = sub.add_parser("gold-import")
+    sp.add_argument("--dir", type=Path, required=True, help="gold-draft output dir")
+
+    sp = sub.add_parser("score")
+    sp.add_argument("--run-dir", type=Path, required=True)
+    sp.add_argument("--gold", type=Path, required=True)
+    sp.add_argument(
+        "--out", type=Path, help="write the full result (with mismatches) as JSON"
+    )
+    sp.add_argument(
+        "--specs",
+        type=Path,
+        help="spec dir the run(s) were made with (default: from run.json)",
+    )
+
     sp = sub.add_parser("probe")
     sp.add_argument("--model", type=Path, required=True)
     sp.add_argument("--specs", type=Path, default=Path("specs"))
@@ -353,6 +510,9 @@ def main(argv: list[str] | None = None) -> None:
             "status": cmd_status,
             "export": cmd_export,
             "probe": cmd_probe,
+            "gold-draft": cmd_gold_draft,
+            "gold-import": cmd_gold_import,
+            "score": cmd_score,
         }[a.cmd](a)
 
 
