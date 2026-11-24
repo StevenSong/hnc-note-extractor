@@ -84,6 +84,32 @@ its cleanup can't run, remove its containers by hand: `docker compose -p hnc-smo
 3. Any server errors from `docker compose logs`.
 4. Later: `review.xlsx` with your verdicts filled in.
 
+## 2. Gold key: draft, review in the browser, import, score
+
+```bash
+# a) Align several runs (one per model) into a consensus draft (gold/ is gitignored)
+python -m hnc_extract gold-draft --run-dir runs/smoke/<model-a> --run-dir runs/smoke/<model-b> ... \
+  --out gold/path-smoke [--specs <spec dir the runs were made with>]
+# b) Review: a local web app. In VS Code, open the forwarded port (http://localhost:8765)
+python -m hnc_extract gold-review --dir gold/path-smoke
+# c) Answers -> gold.jsonl (uses verdicts.json if present, else adjudicate.xlsx)
+python -m hnc_extract gold-import --dir gold/path-smoke
+# d) Score any run on the same documents
+python -m hnc_extract score --run-dir runs/smoke/<model> --gold gold/path-smoke/gold.jsonl --out score.json
+```
+
+- The app shows the report on the left (each model's quoted text is highlighted when you hover
+  over its answer) and one card per aligned specimen or test on the right. Coded fields are
+  dropdowns or chips, so a typo can't get in. Items no model found can be added; select their
+  text in the report first. Press `?` in the app for the walkthrough and keyboard keys.
+- Answers save after every change to `<dir>/verdicts.json`; the previous version is kept as
+  `verdicts.json.bak`. The state is tied to its draft: after a new `gold-draft` in the same
+  dir, the app refuses the old file. Move it away first.
+- The server binds to localhost only and serves the report text, so treat `--host` with care
+  on real data. `gold-draft` writes `review_bundle.json`. For an older draft, `gold-review`
+  rebuilds it from the runs in `draft_meta.json` and checks that they still reproduce the draft.
+- `adjudicate.xlsx` still works: `gold-import --source xlsx`. Coded values are checked there too.
+
 ## Knobs
 
 - `--concurrency N`: parallel requests to the server (default 16). vLLM batches them.

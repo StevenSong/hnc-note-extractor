@@ -6,7 +6,8 @@
   export            JSONL + review workbook for a run dir
   probe             check a model server: reachability, JSON-schema decoding, reasoning field
   gold-draft        align several runs (one model each) into a consensus gold draft + adjudication workbook
-  gold-import       adjudicated workbook -> gold.jsonl
+  gold-review       local web app to adjudicate a gold draft (saves verdicts.json)
+  gold-import       adjudicated verdicts (review app or workbook) -> gold.jsonl
   score             compare a run against gold.jsonl
 
 A run dir holds one model's results for one document set:
@@ -205,15 +206,15 @@ def _views(run_dir: Path, specs_dir: Path | None = None):
     if specs.doc_type != "pathology_report":
         sys.exit(f"{run_dir}: gold/score support pathology_report only")
     rollups = {d: pathology_rollup(n) for d, n in nodes.items()}
-    return model, docs, run_views(nodes, rollups), rollups
+    return model, docs, run_views(nodes, rollups), rollups, specs
 
 
 def cmd_gold_draft(a: argparse.Namespace) -> None:
-    from hnc_extract import gold
+    from hnc_extract import gold, review_app
 
     views, docs, info = {}, None, {"runs": []}
     for rd in a.run_dir:
-        model, d, v, _ = _views(rd, a.specs)
+        model, d, v, _, specs = _views(rd, a.specs)
         if model.name in views:
             sys.exit(f"two runs of model {model.name!r}; pass one run per model")
         ids = [x.doc_id for x in d]
@@ -242,6 +243,17 @@ def cmd_gold_draft(a: argparse.Namespace) -> None:
         "n_documents": len(doc_ids),
     }
     gold.write_adjudication(a.out / "adjudicate.xlsx", records, rows, docs, views, info)
+    # round-trip through JSON so the bundle sees exactly what draft.jsonl holds
+    review_app.write_bundle(
+        a.out,
+        review_app.build_bundle(
+            meta,
+            gold.read_jsonl(a.out / "draft.jsonl"),
+            docs,
+            views,
+            gold.field_options(specs),
+        ),
+    )
     n_fields = sum(len(r["votes"]) for r in records)
     reasons = Counter(r["reason"] for r in rows)
     kinds = Counter(r["kind"] for r in records)
@@ -250,22 +262,130 @@ def cmd_gold_draft(a: argparse.Namespace) -> None:
         f"{n_fields} field decisions; to review: {dict(reasons)}"
     )
     print(f"-> {a.out / 'adjudicate.xlsx'}")
+    print(f"review in the browser: python -m hnc_extract gold-review --dir {a.out}")
+
+
+def _rebuild_bundle(directory: Path) -> dict:
+    """Review bundle from the runs named in draft_meta.json (checks they still match)."""
+    from hnc_extract import gold, review_app
+
+    meta = json.loads((directory / "draft_meta.json").read_text())
+    records = gold.read_jsonl(directory / "draft.jsonl")
+    specs_dir = Path(meta["specs"]) if Path(meta["specs"]).is_dir() else None
+    views, docs, specs = {}, None, None
+    for name, rd in meta["runs"].items():
+        model, docs, views[name], _, specs = _views(Path(rd), specs_dir)
+        if model.name != name:
+            sys.exit(f"{rd}: model {model.name!r}, draft_meta.json says {name!r}")
+    if [d.doc_id for d in docs] != meta["doc_ids"]:
+        sys.exit("the runs' documents differ from draft_meta.json")
+    redraft = json.loads(json.dumps(gold.draft(views, meta["doc_ids"])))
+    if redraft != records:
+        sys.exit(
+            "the runs no longer reproduce draft.jsonl (cache or specs changed); "
+            "re-run gold-draft"
+        )
+    return review_app.build_bundle(
+        meta, records, docs, views, gold.field_options(specs)
+    )
+
+
+def cmd_gold_review(a: argparse.Namespace) -> None:
+    from hnc_extract import gold, review_app
+
+    meta = json.loads((a.dir / "draft_meta.json").read_text())
+    if a.rebuild or not (a.dir / review_app.BUNDLE).exists():
+        print("building the review bundle from the runs ...", flush=True)
+        review_app.write_bundle(a.dir, _rebuild_bundle(a.dir))
+    bundle = review_app.read_bundle(a.dir)
+    records = gold.read_jsonl(a.dir / "draft.jsonl")
+    try:
+        srv = review_app.make_server(a.dir, bundle, records, meta, a.host, a.port)
+    except ValueError as e:
+        sys.exit(f"{a.dir / review_app.STATE}: {e}")
+    host = "localhost" if a.host in ("127.0.0.1", "::1") else a.host
+    print(f"gold review: http://{host}:{srv.server_address[1]}/  (Ctrl-C to stop)")
+    print(f"answers are saved to {a.dir / review_app.STATE} after every change")
+    try:
+        srv.serve_forever()
+    except KeyboardInterrupt:
+        pass
+    finally:
+        srv.server_close()
+
+
+def _gold_options(directory: Path, meta: dict) -> dict | None:
+    from hnc_extract import gold, review_app
+
+    if (directory / review_app.BUNDLE).exists():
+        return review_app.read_bundle(directory)["options"]
+    if Path(meta.get("specs", "")).is_dir():
+        return gold.field_options(load_specs(Path(meta["specs"]), "pathology_report"))
+    return None
 
 
 def cmd_gold_import(a: argparse.Namespace) -> None:
-    from hnc_extract import gold
+    from hnc_extract import gold, review_app
 
     records = gold.read_jsonl(a.dir / "draft.jsonl")
-    verdicts = gold.read_verdicts(a.dir / "adjudicate.xlsx")
+    meta = json.loads((a.dir / "draft_meta.json").read_text())
     known = {
-        f"{r['doc_id']}|{r['key']}|{v['field']}" for r in records for v in r["votes"]
+        f"{r['doc_id']}|{r['key']}|{v['field']}": v["field"]
+        for r in records
+        for v in r["votes"]
     }
-    unknown = sorted(set(verdicts) - known)
-    if unknown:
-        sys.exit(
-            f"{len(unknown)} row_ids in the workbook are not in draft.jsonl, e.g. {unknown[:3]}"
+    source = a.source
+    if source == "auto":
+        source = "app" if (a.dir / review_app.STATE).exists() else "xlsx"
+    options = _gold_options(a.dir, meta)
+    if options is None:
+        print("warning: no review bundle or spec dir; coded values are not checked")
+        options = {}
+    added: list[dict] = []
+    if source == "app":
+        try:
+            state = review_app.read_state(a.dir, meta)
+        except ValueError as e:
+            sys.exit(f"{a.dir / review_app.STATE}: {e}")
+        errors = review_app.validate_state(state, records, options)
+        verdicts, added = review_app.state_verdicts(state)
+        bundle = review_app.read_bundle(a.dir)
+        reasons = {
+            f"{r['doc_id']}|{r['key']}|{v['field']}": v["reason"]
+            for r in bundle["records"]
+            for v in r["votes"]
+            if v["reason"]
+        }
+        prog = review_app.progress(records, reasons, state)
+        print(
+            f"source: {a.dir / review_app.STATE}  ({prog['done']}/{prog['required']} required rows reviewed)"
         )
-    g = gold.build_gold(records, verdicts)
+        if prog["done"] < prog["required"]:
+            print(
+                f"warning: {prog['required'] - prog['done']} required rows not reviewed "
+                "yet; they keep the proposed answer"
+            )
+    else:
+        verdicts = gold.read_verdicts(a.dir / "adjudicate.xlsx")
+        print(f"source: {a.dir / 'adjudicate.xlsx'}")
+        unknown = sorted(set(verdicts) - set(known))
+        if unknown:
+            sys.exit(
+                f"{len(unknown)} row_ids in the workbook are not in draft.jsonl, e.g. {unknown[:3]}"
+            )
+        errors = [
+            f"{rid}: {msg}"
+            for rid, text in verdicts.items()
+            if (
+                msg := gold.validate_value(
+                    known[rid], gold.parse(known[rid], text), options
+                )
+            )
+        ]
+    if errors:
+        print("\n".join(errors[:30]))
+        sys.exit(f"{len(errors)} invalid verdict(s); fix them and re-run")
+    g = gold.build_gold(records, verdicts, added)
     gold.write_jsonl(a.dir / "gold.jsonl", g.values())
     n_s = sum(len(d["specimens"]) for d in g.values())
     n_t = sum(len(d["tests"]) for d in g.values())
@@ -276,7 +396,7 @@ def cmd_score(a: argparse.Namespace) -> None:
     from hnc_extract import gold
 
     g = {d["doc_id"]: d for d in gold.read_jsonl(a.gold)}
-    model, docs, views, rollups = _views(a.run_dir, a.specs)
+    model, docs, views, rollups, _ = _views(a.run_dir, a.specs)
     missing = set(g) - set(views)
     if missing:
         sys.exit(f"{len(missing)} gold docs are not in run {a.run_dir}")
@@ -479,8 +599,28 @@ def main(argv: list[str] | None = None) -> None:
         help="spec dir the run(s) were made with (default: from run.json)",
     )
 
+    sp = sub.add_parser("gold-review")
+    sp.add_argument("--dir", type=Path, required=True, help="gold-draft output dir")
+    sp.add_argument("--port", type=int, default=8765)
+    sp.add_argument(
+        "--host",
+        default="127.0.0.1",
+        help="bind address; keep the default unless you know the network is private",
+    )
+    sp.add_argument(
+        "--rebuild",
+        action="store_true",
+        help="rebuild review_bundle.json from the runs in draft_meta.json",
+    )
+
     sp = sub.add_parser("gold-import")
     sp.add_argument("--dir", type=Path, required=True, help="gold-draft output dir")
+    sp.add_argument(
+        "--source",
+        choices=["auto", "app", "xlsx"],
+        default="auto",
+        help="auto: verdicts.json if it exists, else adjudicate.xlsx",
+    )
 
     sp = sub.add_parser("score")
     sp.add_argument("--run-dir", type=Path, required=True)
@@ -511,6 +651,7 @@ def main(argv: list[str] | None = None) -> None:
             "export": cmd_export,
             "probe": cmd_probe,
             "gold-draft": cmd_gold_draft,
+            "gold-review": cmd_gold_review,
             "gold-import": cmd_gold_import,
             "score": cmd_score,
         }[a.cmd](a)

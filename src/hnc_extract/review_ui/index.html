@@ -1,0 +1,617 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Gold review</title>
+<style>
+:root {
+  --bg: #f6f7f9; --panel: #fff; --ink: #1d2330; --muted: #6b7280; --line: #e3e6eb;
+  --need: #b42318; --need-bg: #fdecea; --warn: #9a6700; --warn-bg: #fff4d6;
+  --spot: #1d4ed8; --spot-bg: #e8efff; --ok: #15803d; --ok-bg: #e7f6ec;
+  --item-hl: #fff1a8; --focus: #2563eb;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; font: 13px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; color: var(--ink); background: var(--bg); }
+button, select, input, textarea { font: inherit; }
+button { cursor: pointer; border: 1px solid var(--line); background: #fff; border-radius: 6px; padding: 3px 9px; }
+button:hover { border-color: #b8bec8; }
+button.primary { background: var(--focus); border-color: var(--focus); color: #fff; }
+button.primary:hover { background: #1d4ed8; }
+button.small { padding: 1px 7px; font-size: 12px; }
+#app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+header { display: flex; align-items: center; gap: 14px; padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+header h1 { font-size: 15px; margin: 0; font-weight: 600; }
+.progress { display: flex; align-items: center; gap: 8px; }
+.bar { width: 180px; height: 8px; background: var(--line); border-radius: 4px; overflow: hidden; }
+.bar > div { height: 100%; background: var(--ok); }
+#save { font-size: 12px; color: var(--muted); min-width: 120px; }
+#save.err { color: var(--need); font-weight: 600; }
+.spacer { flex: 1; }
+.toggles label { margin-left: 10px; white-space: nowrap; }
+main { display: grid; grid-template-columns: 230px minmax(0, 1fr) minmax(0, 1.25fr); min-height: 0; }
+#docs { overflow: auto; border-right: 1px solid var(--line); background: var(--panel); }
+.doc { padding: 7px 12px; border-bottom: 1px solid var(--line); cursor: pointer; }
+.doc:hover { background: #f1f4f8; }
+.doc.cur { background: #e8efff; box-shadow: inset 3px 0 var(--focus); }
+.doc .id { font-family: ui-monospace, monospace; font-weight: 600; }
+.doc .sub { color: var(--muted); font-size: 12px; }
+.doc .mini { height: 4px; background: var(--line); border-radius: 2px; margin-top: 4px; overflow: hidden; }
+.doc .mini > div { height: 100%; background: var(--ok); }
+.doc.complete .id::after { content: " ✓"; color: var(--ok); }
+#textpane { display: flex; flex-direction: column; min-height: 0; border-right: 1px solid var(--line); }
+#dochead { padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--line); }
+#dochead .title { font-family: ui-monospace, monospace; font-weight: 600; }
+#rollup { margin-top: 4px; font-size: 12px; color: var(--muted); }
+#rollup b { color: var(--ink); font-weight: 600; }
+#evinfo { padding: 6px 14px; font-size: 12px; min-height: 44px; max-height: 30vh; overflow: auto; background: #fbfbfc; border-bottom: 1px solid var(--line); color: var(--muted); }
+#evinfo .who { font-weight: 600; }
+#text { flex: 1; overflow: auto; padding: 14px 18px; white-space: pre-wrap; word-wrap: break-word; background: var(--panel); font-size: 13.5px; line-height: 1.6; }
+#text .hi-item { background: var(--item-hl); }
+#text .hi-ev { outline: 2px solid var(--ev, #333); outline-offset: 0; border-radius: 2px; background: color-mix(in srgb, var(--ev, #333) 22%, transparent); }
+#text .hi-added { background: #d9f2e1; }
+#cards { overflow: auto; padding: 12px; }
+.card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; margin-bottom: 12px; overflow: hidden; }
+.card.sel { border-color: var(--focus); box-shadow: 0 0 0 2px #c7d7fe; }
+.card.gone { opacity: .55; }
+.card-head { display: flex; align-items: baseline; gap: 8px; padding: 8px 12px; cursor: pointer; background: #fafbfc; border-bottom: 1px solid var(--line); }
+.card-head .key { font-family: ui-monospace, monospace; font-weight: 700; }
+.card-head .kind { font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+.card-head .name { font-weight: 600; flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.card-head .count { font-size: 12px; }
+.found { padding: 6px 12px; display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 12px; border-bottom: 1px solid var(--line); }
+.found .m { white-space: nowrap; }
+.found .missing { color: var(--muted); font-style: italic; }
+.dot { display: inline-block; width: 9px; height: 9px; border-radius: 50%; margin-right: 4px; vertical-align: 0; }
+table.fields { width: 100%; border-collapse: collapse; }
+table.fields td, table.fields th { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: top; text-align: left; }
+table.fields tr:last-child td, table.fields tr:last-child th { border-bottom: 0; }
+table.fields th { width: 128px; font-weight: 600; }
+table.fields tr.need { background: #fffdfa; }
+table.fields tr.focus { box-shadow: inset 3px 0 var(--focus); background: #f3f7ff; }
+table.fields tr.cons th { font-weight: 400; color: var(--muted); }
+.badge { display: inline-block; font-size: 10.5px; font-weight: 600; padding: 0 6px; border-radius: 9px; margin-top: 2px; white-space: nowrap; }
+.b-disagreement { color: var(--need); background: var(--need-bg); }
+.b-if_present { color: var(--warn); background: var(--warn-bg); }
+.b-spot_check { color: var(--spot); background: var(--spot-bg); }
+.b-done { color: var(--ok); background: var(--ok-bg); }
+.b-edited { color: #6d28d9; background: #f1eaff; }
+td.answers { width: 42%; }
+.anslist { display: flex; flex-direction: column; gap: 4px; }
+.ans { display: flex; gap: 8px; align-items: baseline; width: 100%; text-align: left; padding: 3px 8px; border-radius: 6px; font-size: 12.5px; }
+.ans .who { flex: none; font-size: 11.5px; color: var(--muted); white-space: nowrap; }
+.ans .v { flex: 1; font-weight: 600; }
+.ans .mark { flex: none; color: var(--ok); font-weight: 700; }
+.ans.same { background: #dcf3e3; border-color: #9fd8b1; }
+.ans.diff { background: #fff; }
+.ans.none-val .v { color: var(--muted); font-style: italic; font-weight: 400; }
+.editor select, .editor input[type=text], .editor textarea { width: 100%; padding: 3px 6px; border: 1px solid #c9ced6; border-radius: 5px; background: #fff; }
+.editor textarea { resize: vertical; min-height: 30px; }
+.chips { display: flex; flex-wrap: wrap; gap: 4px; }
+.chip { padding: 1px 8px; border-radius: 12px; font-size: 12px; }
+.chip.on { background: var(--focus); border-color: var(--focus); color: #fff; }
+.invalid { color: var(--need); font-weight: 600; font-size: 12px; }
+.act { width: 64px; white-space: nowrap; text-align: right; }
+.act .ok { color: var(--ok); }
+.present-q { padding: 8px 12px; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; border-bottom: 1px solid var(--line); }
+.present-q.need { background: #fffdfa; }
+.present-q.focus { box-shadow: inset 3px 0 var(--focus); background: #f3f7ff; }
+.seg button { border-radius: 0; margin-left: -1px; }
+.seg button:first-child { border-radius: 6px 0 0 6px; margin-left: 0; }
+.seg button:last-child { border-radius: 0 6px 6px 0; }
+.seg button.on-yes { background: var(--ok); border-color: var(--ok); color: #fff; }
+.seg button.on-no { background: #6b7280; border-color: #6b7280; color: #fff; }
+.card-foot { padding: 6px 12px 10px; display: flex; gap: 8px; align-items: center; }
+.card-foot input { flex: 1; padding: 3px 6px; border: 1px solid #d5d9e0; border-radius: 5px; }
+.addbar { display: flex; gap: 8px; margin: 4px 0 30px; }
+.addev { padding: 6px 12px; font-size: 12px; border-bottom: 1px solid var(--line); background: #f3fbf6; }
+#errors { background: var(--need-bg); color: var(--need); padding: 6px 14px; font-size: 12px; display: none; max-height: 90px; overflow: auto; }
+#help { display: none; position: fixed; inset: 50px 15% auto 15%; background: #fff; border: 1px solid var(--line); border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,.18); padding: 18px 24px; z-index: 10; max-height: 80vh; overflow: auto; }
+#help h2 { margin-top: 0; font-size: 16px; }
+#help kbd { border: 1px solid #ccc; border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; font-size: 12px; background: #fafafa; }
+#help li { margin-bottom: 4px; }
+.empty { color: var(--muted); padding: 30px; text-align: center; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>Gold review</h1>
+    <div class="progress"><div class="bar"><div id="pbar"></div></div><span id="ptext"></span></div>
+    <button class="primary" id="nextbtn" title="Jump to the next answer that still needs you (n)">Next to review ▸</button>
+    <span id="save"></span>
+    <span class="spacer"></span>
+    <span class="toggles" id="toggles"></span>
+    <button id="helpbtn">Help (?)</button>
+  </header>
+  <main>
+    <nav id="docs"></nav>
+    <section id="textpane">
+      <div id="dochead"><div class="title" id="doctitle"></div><div id="rollup"></div></div>
+      <div id="errors"></div>
+      <div id="evinfo">Hover over a model's answer to see the text it quoted and its reasoning. Click a highlighted passage to jump to its item.</div>
+      <div id="text"></div>
+    </section>
+    <section id="cards"></section>
+  </main>
+</div>
+<div id="help">
+  <h2>How to review</h2>
+  <ol>
+    <li><b>Work document by document.</b> The left list shows how many answers in each report still need you. <b>Next to review</b> (<kbd>n</kbd>) jumps to the next one anywhere.</li>
+    <li><b>Settle the item list first.</b> Each card is one specimen or test, as the models' answers were aligned. When not every model found an item, the card asks <i>Is this a real, distinct item?</i>
+      <ul>
+        <li>One model counted a part twice → answer <b>No</b> on the duplicate.</li>
+        <li>One part appears as two cards (the models' answers were not aligned) → keep the better card, answer <b>No</b> on the other, and fix the kept card's fields.</li>
+        <li>A part no model found → <b>+ Add specimen</b> at the bottom. Select its text in the report, then click <b>Use selected text</b>.</li>
+      </ul></li>
+    <li><b>Then the fields.</b> Each row shows each model's answer. Green means it matches the current gold value. <b>Click an answer to adopt it</b>, or set the value yourself. Changing a value marks it reviewed. If the pre-filled value is right, click <b>✓</b> (or press <kbd>y</kbd> on the highlighted row).</li>
+    <li>Badges: <span class="badge b-disagreement">models disagree</span> <span class="badge b-if_present">not all found it</span> <span class="badge b-spot_check">spot check</span>. A spot check is a random sample of answers all the models agreed on, used to estimate errors they share. Rows without a badge are consensus. You can still edit them; hide them with the toggle at the top.</li>
+    <li><b>(none)</b> means not stated / empty. List fields (several values) use toggle chips or one value per line.</li>
+    <li>Everything saves automatically to <code>verdicts.json</code>. When done: <code>python -m hnc_extract gold-import --dir &lt;dir&gt;</code>.</li>
+  </ol>
+  <p>Keys: <kbd>n</kbd> next to review · <kbd>y</kbd> confirm highlighted row and go to the next · <kbd>[</kbd> <kbd>]</kbd> previous / next document · <kbd>h</kbd> hide/show consensus rows · <kbd>?</kbd> this help · <kbd>Esc</kbd> close</p>
+  <p>Rulings so far: "consistent with" / "compatible with" = affirmed. A cytospin preparation is the specimen, not an ancillary test.</p>
+  <button class="primary" onclick="toggleHelp(false)">Got it</button>
+</div>
+<script>
+"use strict";
+let B, S, recs = [], docs = [], docIdx = 0, selRec = null, focusRid = null;
+let hover = null, lastSel = null, reports = {}, errors = [], saveTimer = null, saving = false, dirty = false;
+const COLORS = ["#2563eb", "#d97706", "#7c3aed", "#059669", "#db2777", "#0891b2"];
+const LABELS = {
+  label: "Part label", site: "Site", material: "Material received", procedure: "Procedure",
+  carcinoma_status: "Carcinoma", histology: "Histology", invasion: "Invasion (affirmed)",
+  invasion_uncertain: "Invasion (uncertain)", keratinization: "Keratinization",
+  dysplasia_status: "Dysplasia", dysplasia_grades: "Dysplasia grade", test: "Test",
+  test_type: "Test type", specimen_label: "On part", result: "Result", pdl1_scores: "PD-L1 scores",
+};
+const REASON = { disagreement: "models disagree", if_present: "not all found it", spot_check: "spot check" };
+const pref = JSON.parse(localStorage.getItem("goldReviewPrefs") || "{}");
+pref.hidden = pref.hidden || [];
+const savePref = () => localStorage.setItem("goldReviewPrefs", JSON.stringify(pref));
+
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const shortName = m => { const t = m.split("-")[0].replace(/[\d.]+$/, ""); return t.charAt(0).toUpperCase() + t.slice(1); };
+const color = m => COLORS[B.models.indexOf(m) % COLORS.length];
+const isList = f => B.list_fields.includes(f);
+const rid = (r, f) => `${r.doc_id}|${r.key}|${f}`;
+const vote = (r, f) => r.votes.find(v => v.field === f);
+const visibleModels = () => B.models.filter(m => !pref.hidden.includes(m));
+
+// ---------------------------------------------------------------- values
+const asList = v => v == null ? [] : Array.isArray(v) ? v : [v];
+const fmt = v => { const l = asList(v); return l.length ? l.join(" | ") : "(none)"; };
+const tokens = s => new Set((String(s).toLowerCase().replace(/%/g, "").match(/[0-9a-z]+/g)) || []);
+const subset = (a, b) => [...a].every(x => b.has(x));
+const textEq = (a, b) => { const ta = tokens(a), tb = tokens(b); return (!ta.size || !tb.size) ? ta.size === tb.size : subset(ta, tb) || subset(tb, ta); };
+const normLabel = s => { const t = String(s).replace(/[^0-9A-Za-z]/g, "").toUpperCase(); return (t.length > 1 && /^X+$/.test(t)) ? "" : t; };
+function eq(f, a, b) {
+  let la = asList(a).map(String), lb = asList(b).map(String);
+  if (f === "label" || f === "specimen_label") { la = la.map(normLabel).filter(Boolean); lb = lb.map(normLabel).filter(Boolean); }
+  if (!la.length || !lb.length) return la.length === lb.length;
+  if (B.text_fields.includes(f)) return la.every(x => lb.some(y => textEq(x, y))) && lb.every(y => la.some(x => textEq(x, y)));
+  const n = l => [...new Set(l.map(x => x.trim().toLowerCase().replace(/%/g, "").replace(/\s+/g, " ")))].sort().join("\u0001");
+  return n(la) === n(lb);
+}
+
+// ---------------------------------------------------------------- state
+const entry = id => S.fields[id];
+function goldVal(r, f) {
+  if (r.added) return r.values[f] ?? (isList(f) ? [] : null);
+  const e = entry(rid(r, f));
+  return e && "value" in e ? e.value : vote(r, f).proposed;
+}
+const presentOf = r => r.added ? "yes" : goldVal(r, "present");
+function required(r, f) {
+  if (r.added) return false;
+  const v = vote(r, f);
+  return !!v.reason && (f === "present" || presentOf(r) === "yes");
+}
+const reviewed = (r, f) => !!(entry(rid(r, f)) || {}).reviewed;
+function setVal(r, f, value) {
+  if (r.added) { r.values[f] = value; }
+  else { S.fields[rid(r, f)] = { value, reviewed: true }; focusRid = rid(r, f); }
+  changed();
+}
+function confirmRow(r, f) { if (!r.added) { S.fields[rid(r, f)] = { value: goldVal(r, f), reviewed: true }; focusRid = rid(r, f); changed(); } }
+function resetRow(r, f) { delete S.fields[rid(r, f)]; changed(); }
+function docRecs(d) {
+  const base = recs.filter(r => r.doc_id === d.doc_id);
+  const added = S.added.filter(a => a.doc_id === d.doc_id).map(a => Object.assign(a, { added: true }));
+  return [...base, ...added];
+}
+function fieldsOf(r) { return B.fields[r.kind]; }
+function rowsOf(r) { return r.added ? [] : ["present", ...fieldsOf(r)]; }
+function docProgress(d) {
+  let req = 0, done = 0;
+  for (const r of docRecs(d)) for (const f of rowsOf(r)) if (required(r, f)) { req++; if (reviewed(r, f)) done++; }
+  return { req, done };
+}
+function allProgress() {
+  let req = 0, done = 0;
+  for (const d of docs) { const p = docProgress(d); req += p.req; done += p.done; }
+  return { req, done };
+}
+
+// ---------------------------------------------------------------- saving
+function changed() { dirty = true; render(); clearTimeout(saveTimer); saveTimer = setTimeout(save, 350); setSave("saving…"); }
+function setSave(t, err) { const el = $("#save"); el.textContent = t; el.className = err ? "err" : ""; }
+async function save() {
+  if (saving) { clearTimeout(saveTimer); saveTimer = setTimeout(save, 300); return; }
+  saving = true; dirty = false;
+  const body = JSON.stringify({ ...S, added: S.added.map(({ added, ...a }) => a) });
+  try {
+    const res = await fetch("/api/state", { method: "POST", headers: { "Content-Type": "application/json" }, body });
+    const out = await res.json();
+    if (!res.ok) throw new Error(out.error || res.status);
+    reports = out.reports; errors = out.errors;
+    setSave(dirty ? "saving…" : "saved " + new Date().toLocaleTimeString());
+    renderHead(); renderErrors();
+  } catch (e) {
+    dirty = true; setSave("NOT SAVED: " + e.message + " (will retry)", true);
+    clearTimeout(saveTimer); saveTimer = setTimeout(save, 3000);
+  } finally { saving = false; }
+}
+window.addEventListener("beforeunload", e => { if (dirty) { e.preventDefault(); e.returnValue = ""; } });
+
+// ---------------------------------------------------------------- render
+function render() { renderTop(); renderDocs(); renderHead(); renderErrors(); renderText(); renderCards(); }
+
+function renderTop() {
+  const p = allProgress();
+  $("#pbar").style.width = (p.req ? 100 * p.done / p.req : 100) + "%";
+  $("#ptext").textContent = `${p.done} / ${p.req} reviewed`;
+  const t = $("#toggles");
+  t.innerHTML = `<label><input type="checkbox" id="hidecons" ${pref.hideCons ? "checked" : ""}> hide consensus rows</label>` +
+    B.models.map(m => `<label title="${esc(m)}"><input type="checkbox" data-model="${esc(m)}" ${pref.hidden.includes(m) ? "" : "checked"}><span class="dot" style="background:${color(m)}"></span>${esc(shortName(m))}</label>`).join("");
+  $("#hidecons").onchange = e => { pref.hideCons = e.target.checked; savePref(); render(); };
+  t.querySelectorAll("[data-model]").forEach(cb => cb.onchange = () => {
+    const m = cb.dataset.model; pref.hidden = cb.checked ? pref.hidden.filter(x => x !== m) : [...pref.hidden, m]; savePref(); render();
+  });
+}
+
+function renderDocs() {
+  $("#docs").innerHTML = docs.map((d, i) => {
+    const p = docProgress(d), rs = docRecs(d);
+    const ns = rs.filter(r => r.kind === "specimen").length, nt = rs.length - ns;
+    const pct = p.req ? 100 * p.done / p.req : 100;
+    return `<div class="doc ${i === docIdx ? "cur" : ""} ${p.done === p.req ? "complete" : ""}" data-i="${i}">
+      <div class="id">${i + 1}. ${esc(d.doc_id.slice(0, 8))}</div>
+      <div class="sub">${ns} specimen${ns === 1 ? "" : "s"} · ${nt} test${nt === 1 ? "" : "s"} · ${p.req - p.done ? `<b>${p.req - p.done} to review</b>` : "done"}</div>
+      <div class="mini"><div style="width:${pct}%"></div></div></div>`;
+  }).join("");
+  $("#docs").querySelectorAll(".doc").forEach(el => el.onclick = () => gotoDoc(+el.dataset.i));
+}
+
+function renderHead() {
+  const d = docs[docIdx];
+  $("#doctitle").textContent = `${d.doc_id}   ·   patient ${d.patient_id}`;
+  const rep = reports[d.doc_id];
+  $("#rollup").innerHTML = rep ? "From your answers: " + [
+    ["carcinoma", rep.report_carcinoma_status], ["invasive", rep.report_invasive_carcinoma ? "yes" : "no"],
+    ["invasion suspected", rep.report_invasion_suspected ? "yes" : "no"], ["dysplasia", rep.report_dysplasia_status],
+    ["worst grade", rep.worst_dysplasia_grade ?? "—"],
+  ].map(([k, v]) => `${k} <b>${esc(v)}</b>`).join(" · ") : "";
+}
+
+function renderErrors() {
+  const el = $("#errors");
+  el.style.display = errors.length ? "block" : "none";
+  el.innerHTML = errors.length ? `<b>${errors.length} problem(s) gold-import will reject:</b><br>` + errors.map(esc).join("<br>") : "";
+}
+
+function renderText() {
+  const d = docs[docIdx], text = d.text, el = $("#text");
+  const marks = [];
+  const sr = selRec && docRecs(d).find(r => recKey(r) === selRec);
+  if (sr) for (const [s, e] of sr.spans || []) marks.push([s, e, sr.added ? "hi-added" : "hi-item", null]);
+  if (hover) for (const [s, e] of hover.spans) marks.push([s, e, "hi-ev", hover.color]);
+  const cuts = new Set([0, text.length]);
+  for (const [s, e] of marks) { cuts.add(Math.max(0, s)); cuts.add(Math.min(text.length, e)); }
+  const pts = [...cuts].sort((a, b) => a - b);
+  let html = "";
+  for (let i = 0; i < pts.length - 1; i++) {
+    const a = pts[i], b = pts[i + 1], seg = esc(text.slice(a, b));
+    const on = marks.filter(([s, e]) => s <= a && e >= b);
+    if (!on.length) { html += seg; continue; }
+    const cls = [...new Set(on.map(m => m[2]))].join(" "), ev = on.find(m => m[3]);
+    html += `<span class="${cls}" data-a="${a}"${ev ? ` style="--ev:${ev[3]}"` : ""}>${seg}</span>`;
+  }
+  el.innerHTML = html;
+}
+function scrollTextTo(sel) {
+  const pane = $("#text"), m = pane.querySelector(sel);
+  if (!m) return;
+  const pr = pane.getBoundingClientRect(), mr = m.getBoundingClientRect();
+  if (mr.top < pr.top + 20 || mr.bottom > pr.bottom - 20) pane.scrollTop += mr.top - pr.top - pane.clientHeight / 3;
+}
+
+const recKey = r => `${r.doc_id}|${r.key}`;
+function recName(r) {
+  if (r.added) return r.kind === "specimen" ? `${r.values.label || "?"}: ${r.values.site || ""}` : `${r.values.test || "?"} [${r.values.specimen_label || "-"}]`;
+  const c = {};
+  for (const m of B.models) if (r.desc[m]) c[r.desc[m]] = (c[r.desc[m]] || 0) + 1;
+  return Object.entries(c).sort((a, b) => b[1] - a[1])[0]?.[0] ?? "";
+}
+
+function renderCards() {
+  const d = docs[docIdx], pane = $("#cards"), top = pane.scrollTop;
+  const rs = docRecs(d);
+  let html = rs.length ? "" : `<div class="empty">No specimens or tests found by any model.</div>`;
+  for (const r of rs) html += r.added ? addedCard(r) : card(r);
+  html += `<div class="addbar"><button data-add="specimen">+ Add specimen no model found</button><button data-add="test">+ Add test no model found</button></div>`;
+  pane.innerHTML = html;
+  pane.scrollTop = top;
+  wireCards(pane, rs);
+}
+
+function reasonBadge(r, f) {
+  if (r.added) return "";
+  const v = vote(r, f), e = entry(rid(r, f));
+  if (v.reason && reviewed(r, f)) return `<span class="badge b-done">✓ ${REASON[v.reason]}</span>`;
+  if (v.reason) return `<span class="badge b-${v.reason}">${REASON[v.reason]}</span>`;
+  if (e && "value" in e) return `<span class="badge b-edited">edited</span>`;
+  return "";
+}
+
+function card(r) {
+  const pres = presentOf(r), pv = vote(r, "present");
+  const left = rowsOf(r).filter(f => required(r, f) && !reviewed(r, f)).length;
+  const found = B.models.filter(m => !pref.hidden.includes(m)).map(m => r.members[m]
+    ? `<span class="m"><span class="dot" style="background:${color(m)}"></span>${esc(shortName(m))}: ${esc(r.desc[m])}</span>`
+    : `<span class="m missing"><span class="dot" style="background:${color(m)}"></span>${esc(shortName(m))}: not found</span>`).join("");
+  const askPresent = pv.reason || (entry(rid(r, "present")) && "value" in entry(rid(r, "present")));
+  const presentRid = rid(r, "present");
+  let h = `<div class="card ${selRec === recKey(r) ? "sel" : ""} ${pres !== "yes" ? "gone" : ""}" data-rec="${esc(recKey(r))}">
+    <div class="card-head" data-select><span class="key">${esc(r.key)}</span><span class="kind">${r.kind}</span>
+      <span class="name">${esc(recName(r))}</span>
+      <span class="count">${left ? `<span class="badge b-disagreement">${left} to review</span>` : `<span class="badge b-done">✓</span>`}</span></div>
+    <div class="found">${found}</div>`;
+  if (askPresent || pres !== "yes") {
+    h += `<div class="present-q ${required(r, "present") && !reviewed(r, "present") ? "need" : ""} ${focusRid === presentRid ? "focus" : ""}" data-rid="${esc(presentRid)}">
+      <span>Is this a real, distinct ${r.kind} in the report?</span>
+      <span class="seg"><button data-present="yes" class="${pres === "yes" && reviewed(r, "present") ? "on-yes" : ""}">Yes</button><button data-present="no" class="${pres === "no" && reviewed(r, "present") ? "on-no" : ""}">No: duplicate / not real</button></span>
+      ${reasonBadge(r, "present")} ${!reviewed(r, "present") ? `<span class="badge" style="color:var(--muted)">proposed: ${esc(pv.proposed)}</span>` : ""}
+    </div>`;
+  }
+  if (pres === "yes") {
+    h += `<table class="fields">`;
+    for (const f of fieldsOf(r)) {
+      const v = vote(r, f), e = entry(rid(r, f));
+      const cons = !v.reason && !(e && "value" in e);
+      if (cons && pref.hideCons) continue;
+      h += fieldRow(r, f, cons);
+    }
+    h += `</table>`;
+  }
+  h += `<div class="card-foot"><input type="text" data-comment placeholder="comment (optional)" value="${esc(S.comments[recKey(r)] || "")}">
+    ${left ? `<button class="small" data-confirmall>✓ Confirm all on this card</button>` : ""}</div></div>`;
+  return h;
+}
+
+function fieldRow(r, f, cons) {
+  const id = rid(r, f), g = goldVal(r, f), v = vote(r, f);
+  const need = required(r, f) && !reviewed(r, f);
+  const vis = visibleModels(), groups = [];
+  for (const m of vis) {
+    if (!r.members[m]) continue;
+    const a = v.answers[m], g0 = groups.find(x => fmt(x.value) === fmt(a));
+    if (g0) g0.models.push(m); else groups.push({ value: a, models: [m] });
+  }
+  groups.sort((a, b) => b.models.length - a.models.length);
+  const who = ms => ms.map(m => `<span class="dot" style="background:${color(m)}"></span>${esc(shortName(m))}`).join(" ");
+  const answers = groups.map(x => {
+    const same = eq(f, x.value, g), none = !asList(x.value).length;
+    const names = x.models.length === vis.length && vis.length > 1 ? `<span class="dot" style="background:#9ca3af"></span>all` : who(x.models);
+    return `<button class="ans ${same ? "same" : "diff"} ${none ? "none-val" : ""}" data-pick="${esc(x.models.join(","))}" title="click to use this answer; hover to see the quoted text"><span class="who">${names}</span><span class="v">${esc(fmt(x.value))}</span>${same ? `<span class="mark">✓</span>` : ""}</button>`;
+  }).join("");
+  return `<tr class="${need ? "need" : ""} ${cons ? "cons" : ""} ${focusRid === id ? "focus" : ""}" data-rid="${esc(id)}" data-field="${f}">
+    <th>${esc(LABELS[f] || f)}<br>${reasonBadge(r, f)}</th>
+    <td class="answers"><div class="anslist">${answers}</div></td>
+    <td class="editor">${editor(f, g)}</td>
+    <td class="act">${need ? `<button class="small ok" data-confirm title="the value shown is right (y)">✓</button>` : ""}${entry(id) ? ` <button class="small" data-reset title="back to the proposed answer, not reviewed">↺</button>` : ""}</td></tr>`;
+}
+
+function editor(f, g) {
+  const opts = B.options[f];
+  if (opts && !isList(f)) {
+    const bad = g != null && !opts.includes(g);
+    return `<select data-edit>${[`<option value="">(none)</option>`, ...opts.map(o => `<option ${o === g ? "selected" : ""}>${esc(o)}</option>`)].join("")}
+      ${bad ? `<option selected value="${esc(g)}">${esc(g)} (invalid)</option>` : ""}</select>${bad ? `<div class="invalid">not an allowed value</div>` : ""}`;
+  }
+  if (opts) {
+    const cur = asList(g), bad = cur.filter(x => !opts.includes(x));
+    return `<div class="chips">${opts.map(o => `<button class="chip ${cur.includes(o) ? "on" : ""}" data-chip="${esc(o)}">${esc(o)}</button>`).join("")}</div>` +
+      (bad.length ? `<div class="invalid">invalid: ${esc(bad.join(", "))} <button class="small" data-dropbad>remove</button></div>` : "") +
+      (!cur.length ? `<div style="color:var(--muted);font-size:12px;margin-top:2px">(none)</div>` : "");
+  }
+  if (isList(f)) return `<textarea data-edit rows="${Math.max(1, asList(g).length)}" placeholder="(none): one value per line">${esc(asList(g).join("\n"))}</textarea>`;
+  return `<input type="text" data-edit value="${esc(g ?? "")}" placeholder="(none)">`;
+}
+
+function addedCard(a) {
+  const k = recKey(a);
+  let h = `<div class="card ${selRec === k ? "sel" : ""}" data-rec="${esc(k)}">
+    <div class="card-head" data-select><span class="key">${esc(a.key)}</span><span class="kind">${a.kind} · added by you</span>
+      <span class="name">${esc(recName(a))}</span><button class="small" data-delete>Delete</button></div>
+    <div class="addev">Evidence text: ${a.spans.length ? `${a.spans.length} passage(s), ${a.spans.reduce((n, [s, e]) => n + e - s, 0)} chars` : "<b>none yet</b>"} ·
+      select the passage in the report, then <button class="small" data-usesel>Use selected text</button> ${a.spans.length ? `<button class="small" data-clearsel>Clear</button>` : ""}
+      <div style="color:var(--muted)">Give a part label or evidence text, or scoring cannot match this item.</div></div>
+    <table class="fields">`;
+  for (const f of fieldsOf(a)) h += `<tr data-field="${f}"><th>${esc(LABELS[f] || f)}</th><td class="editor" colspan="3">${editor(f, goldVal(a, f))}</td></tr>`;
+  h += `</table><div class="card-foot"><input type="text" data-comment placeholder="comment (optional)" value="${esc(a.comment || "")}"></div></div>`;
+  return h;
+}
+
+function parseEdit(f, el) {
+  if (isList(f)) return el.value.split("\n").map(s => s.trim()).filter(Boolean);
+  const s = el.value.trim();
+  return s === "" ? null : s;
+}
+
+function wireCards(pane, rs) {
+  const byKey = Object.fromEntries(rs.map(r => [recKey(r), r]));
+  pane.querySelectorAll(".card").forEach(c => {
+    const r = byKey[c.dataset.rec];
+    $("[data-select]", c).addEventListener("click", ev => { if (ev.target.closest("button")) return; selectRec(r, true); });
+    c.querySelectorAll("[data-present]").forEach(b => b.onclick = () => { selRec = recKey(r); setVal(r, "present", b.dataset.present); });
+    c.querySelectorAll("tr[data-field]").forEach(tr => {
+      const f = tr.dataset.field;
+      tr.addEventListener("click", () => { if (!r.added) { focusRid = rid(r, f); } if (selRec !== recKey(r)) { selRec = recKey(r); renderText(); markSel(); } markFocus(); });
+      tr.querySelectorAll("[data-pick]").forEach(b => {
+        const ms = b.dataset.pick.split(",");
+        b.onclick = ev => { ev.stopPropagation(); selRec = recKey(r); setVal(r, f, JSON.parse(JSON.stringify(vote(r, f).answers[ms[0]]))); };
+        b.onmouseenter = () => showEvidence(r, f, ms);
+        b.onmouseleave = () => { hover = null; renderText(); };
+      });
+      const ed = tr.querySelector("[data-edit]");
+      if (ed) ed.addEventListener("change", () => setVal(r, f, parseEdit(f, ed)));
+      tr.querySelectorAll("[data-chip]").forEach(b => b.onclick = ev => {
+        ev.stopPropagation();
+        const cur = asList(goldVal(r, f)), o = b.dataset.chip;
+        setVal(r, f, cur.includes(o) ? cur.filter(x => x !== o) : [...cur, o]);
+      });
+      const db = tr.querySelector("[data-dropbad]");
+      if (db) db.onclick = () => setVal(r, f, asList(goldVal(r, f)).filter(x => B.options[f].includes(x)));
+      const cb = tr.querySelector("[data-confirm]");
+      if (cb) cb.onclick = ev => { ev.stopPropagation(); confirmRow(r, f); };
+      const rb = tr.querySelector("[data-reset]");
+      if (rb) rb.onclick = ev => { ev.stopPropagation(); resetRow(r, f); };
+    });
+    const ca = $("[data-confirmall]", c);
+    if (ca) ca.onclick = () => { for (const f of rowsOf(r)) if (required(r, f) && !reviewed(r, f)) S.fields[rid(r, f)] = { value: goldVal(r, f), reviewed: true }; changed(); };
+    const cm = $("[data-comment]", c);
+    cm.addEventListener("change", () => { const t = cm.value.trim(); if (r.added) r.comment = t; else if (t) S.comments[recKey(r)] = t; else delete S.comments[recKey(r)]; changed(); });
+    const del = $("[data-delete]", c);
+    if (del) del.onclick = () => { if (confirm(`Delete added ${r.kind} ${r.key}?`)) { S.added = S.added.filter(x => x !== r); changed(); } };
+    const us = $("[data-usesel]", c);
+    if (us) us.onclick = () => {
+      if (!lastSel || lastSel.doc !== docs[docIdx].doc_id) { alert("Select the passage in the report text first."); return; }
+      r.spans.push([lastSel.start, lastSel.end]); r.spans.sort((a, b) => a[0] - b[0]); selRec = recKey(r); lastSel = null; changed();
+    };
+    const cs = $("[data-clearsel]", c);
+    if (cs) cs.onclick = () => { r.spans = []; changed(); };
+  });
+  pane.querySelectorAll("[data-add]").forEach(b => b.onclick = () => addItem(b.dataset.add));
+}
+
+function markSel() { document.querySelectorAll(".card").forEach(c => c.classList.toggle("sel", c.dataset.rec === selRec)); }
+function markFocus() { document.querySelectorAll("[data-rid]").forEach(el => el.classList.toggle("focus", el.dataset.rid === focusRid)); }
+
+function showEvidence(r, f, ms) {
+  const parts = [], spans = [];
+  for (const m of ms) {
+    const ev = (r.evidence[m] || {})[f], who = `<span class="who" style="color:${color(m)}">${esc(shortName(m))}</span>`;
+    if (ev == null) parts.push(`${who}: <i>never asked</i> (a parent answer gated this field out)`);
+    else if (!ev.length) parts.push(`${who}: <i>asked; extracted nothing</i>`);
+    else for (const x of ev) { parts.push(`${who}: <b>${esc(x.said || "")}</b>${x.why ? `<br>why: ${esc(x.why)}` : ""}`); spans.push(...x.spans); }
+  }
+  $("#evinfo").innerHTML = `<b>${esc(LABELS[f] || f)}</b><br>` + parts.join("<hr style='border:0;border-top:1px solid #eee;margin:3px 0'>");
+  hover = spans.length ? { spans, color: color(ms[0]) } : null;
+  renderText(); if (hover) scrollTextTo(".hi-ev");
+}
+
+function selectRec(r, scroll) {
+  selRec = recKey(r); hover = null; renderText(); markSel();
+  if (scroll) scrollTextTo(r.added ? ".hi-added" : ".hi-item");
+}
+
+function addItem(kind) {
+  const d = docs[docIdx], prefix = kind === "specimen" ? "AS" : "AT";
+  const n = S.added.filter(a => a.doc_id === d.doc_id && a.kind === kind).length + 1;
+  const values = {};
+  for (const f of B.fields[kind]) values[f] = isList(f) ? [] : null;
+  const a = { doc_id: d.doc_id, kind, key: `${prefix}${String(n).padStart(2, "0")}`, spans: lastSel && lastSel.doc === d.doc_id ? [[lastSel.start, lastSel.end]] : [], values, comment: "" };
+  lastSel = null;
+  S.added.push(a); selRec = recKey(a); changed();
+  $("#cards").scrollTop = $("#cards").scrollHeight;
+}
+
+// ---------------------------------------------------------------- navigation
+function gotoDoc(i) { docIdx = Math.max(0, Math.min(docs.length - 1, i)); selRec = null; hover = null; focusRid = null; render(); $("#text").scrollTop = 0; $("#cards").scrollTop = 0; }
+function nextToReview(skipCurrent) {
+  for (let k = 0; k < docs.length; k++) {
+    const di = (docIdx + k) % docs.length;
+    for (const r of docRecs(docs[di])) for (const f of rowsOf(r)) {
+      const id = rid(r, f);
+      if (skipCurrent && id === focusRid) continue;
+      if (required(r, f) && !reviewed(r, f)) {
+        if (di !== docIdx) { docIdx = di; hover = null; }
+        selRec = recKey(r); focusRid = id; render();
+        const el = document.querySelector(`[data-rid="${CSS.escape(id)}"]`);
+        if (el) el.scrollIntoView({ block: "center" });
+        scrollTextTo(".hi-item");
+        return;
+      }
+    }
+  }
+  focusRid = null; render(); setSave("everything reviewed ✓");
+}
+function confirmFocused() {
+  if (!focusRid) return nextToReview(false);
+  const [doc_id, key, f] = focusRid.split("|");
+  const r = recs.find(x => x.doc_id === doc_id && x.key === key);
+  if (r) confirmRow(r, f);
+  nextToReview(true);
+}
+function toggleHelp(on) { $("#help").style.display = on ? "block" : "none"; }
+
+document.addEventListener("keydown", e => {
+  if (e.target.closest("input, textarea, select") || e.metaKey || e.ctrlKey || e.altKey) return;
+  if (e.key === "Escape") toggleHelp(false);
+  else if (e.key === "?") toggleHelp($("#help").style.display !== "block");
+  else if (e.key === "n") nextToReview(true);
+  else if (e.key === "y") confirmFocused();
+  else if (e.key === "[") gotoDoc(docIdx - 1);
+  else if (e.key === "]") gotoDoc(docIdx + 1);
+  else if (e.key === "h") { pref.hideCons = !pref.hideCons; savePref(); render(); }
+  else return;
+  e.preventDefault();
+});
+
+function textOffsets() {
+  const sel = window.getSelection(), el = $("#text");
+  if (!sel.rangeCount || sel.isCollapsed) return null;
+  const r = sel.getRangeAt(0);
+  if (!el.contains(r.startContainer) || !el.contains(r.endContainer)) return null;
+  const pre = document.createRange(); pre.selectNodeContents(el); pre.setEnd(r.startContainer, r.startOffset);
+  const start = pre.toString().length, end = start + r.toString().length;
+  return end > start ? { doc: docs[docIdx].doc_id, start, end } : null;
+}
+$("#text").addEventListener("mouseup", () => {
+  const s = textOffsets();
+  if (s) { lastSel = s; $("#evinfo").innerHTML = `Selected ${s.end - s.start} characters. Use them with <b>Use selected text</b> on an added item, or <b>+ Add specimen</b>.`; return; }
+  // plain click: jump to the item whose quoted text is here
+  const sel = window.getSelection();
+  if (!sel.rangeCount) return;
+  const r0 = sel.getRangeAt(0), el = $("#text");
+  if (!el.contains(r0.startContainer)) return;
+  const pre = document.createRange(); pre.selectNodeContents(el); pre.setEnd(r0.startContainer, r0.startOffset);
+  const off = pre.toString().length;
+  const hits = docRecs(docs[docIdx]).flatMap(r => (r.spans || []).filter(([s, e]) => s <= off && off < e).map(([s, e]) => [e - s, r]));
+  if (!hits.length) return;
+  hits.sort((a, b) => a[0] - b[0]);
+  const r = hits[0][1]; selectRec(r, false);
+  const c = document.querySelector(`.card[data-rec="${CSS.escape(recKey(r))}"]`);
+  if (c) c.scrollIntoView({ block: "start", behavior: "smooth" });
+});
+
+$("#nextbtn").onclick = () => nextToReview(true);
+$("#helpbtn").onclick = () => toggleHelp(true);
+
+(async function init() {
+  try {
+    const [b, s, rep] = await Promise.all(["/api/bundle", "/api/state", "/api/reports"].map(u => fetch(u).then(r => { if (!r.ok) throw new Error(u + ": " + r.status); return r.json(); })));
+    B = b; S = s; reports = rep.reports; errors = rep.errors;
+    recs = B.records; docs = B.docs;
+    if (!localStorage.getItem("goldReviewSeenHelp")) { toggleHelp(true); localStorage.setItem("goldReviewSeenHelp", "1"); }
+    setSave("loaded");
+    render();
+  } catch (e) {
+    document.body.innerHTML = `<div class="empty">Could not load the review data: ${esc(e.message)}</div>`;
+  }
+})();
+</script>
+</body>
+</html>

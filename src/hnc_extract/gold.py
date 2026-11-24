@@ -66,6 +66,70 @@ LIST_FIELDS = {
 }
 
 
+# gold field -> DAG node whose answer it comes from (None: the root item itself)
+SPECIMEN_FIELD_NODE = {
+    "label": None,
+    "site": None,
+    "material": None,
+    "procedure": "procedure_type",
+    "carcinoma_status": "carcinoma_status",
+    "histology": "histology",
+    "invasion": "histology",
+    "invasion_uncertain": "histology",
+    "keratinization": "keratinization",
+    "dysplasia_status": "dysplasia_status",
+    "dysplasia_grades": "dysplasia_grade",
+}
+TEST_FIELD_NODE = {
+    "test": None,
+    "test_type": None,
+    "specimen_label": None,
+    "result": "test_result",
+    "pdl1_scores": "pdl1_score",
+}
+
+
+def field_options(specs) -> dict[str, list[str]]:
+    """Allowed gold values per coded field, from the spec set (a SpecSet)."""
+
+    def cats(name: str) -> list[str]:
+        return list(specs[name].categories or {})
+
+    def attr(name: str, a: str) -> list[str]:
+        return list(specs[name].attributes[a].values or {})
+
+    invasion = [v for v in attr("histology", "invasion") if v != "not_stated"]
+    return {
+        "present": ["yes", "no"],
+        "material": attr("specimen", "material"),
+        "procedure": cats("procedure_type"),
+        "carcinoma_status": cats("carcinoma_status"),
+        "invasion": invasion,
+        "invasion_uncertain": invasion,
+        "keratinization": cats("keratinization"),
+        "dysplasia_status": cats("dysplasia_status"),
+        "dysplasia_grades": cats("dysplasia_grade"),
+        "test_type": attr("ancillary_test", "test_type"),
+        "result": cats("test_result"),
+    }
+
+
+def validate_value(field: str, value, options: dict[str, list[str]]) -> str | None:
+    """Error message if an adjudicated value is not allowed, else None."""
+    if field not in options:
+        return None
+    allowed = set(options[field])
+    vals = value if isinstance(value, list) else [] if value is None else [value]
+    if field == "present" and not vals:
+        return "present must be yes or no"
+    bad = [v for v in vals if v not in allowed]
+    if field not in LIST_FIELDS and len(vals) > 1:
+        return f"{field} takes one value, got {vals}"
+    if bad:
+        return f"{field}: {bad} not in {sorted(allowed)}"
+    return None
+
+
 # ---------------------------------------------------------------- normalization
 
 
@@ -141,7 +205,12 @@ def render(value) -> str:
 
 
 def parse(field: str, text) -> object:
-    """Inverse of render for an adjudicated cell."""
+    """Inverse of render for an adjudicated cell (lists pass through)."""
+    if isinstance(text, (list, tuple)):
+        vals = [str(v).strip() for v in text if str(v).strip()]
+        if field in LIST_FIELDS:
+            return vals
+        return vals[0] if vals else None
     text = "" if text is None else str(text).strip()
     if text in ("", NONE):
         return [] if field in LIST_FIELDS else None
@@ -178,20 +247,56 @@ def run_views(nodes_by_doc: dict, rollups: dict) -> dict[str, dict]:
                 return _spans(ev[index]) if index < len(ev) else []
             return _spans(ev)
 
+        def field_evidence(root: str, i: int, path: str, node_of: dict) -> dict:
+            """{field: [{spans, why, said}] or None if the field was never asked}."""
+            out = {}
+            for f, node in node_of.items():
+                if node is None:
+                    n, idx = nodes.get((root, "")), i
+                else:
+                    n, idx = nodes.get((node, path)), None
+                if n is None or n.record is None:
+                    out[f] = None  # never asked (gated out by a parent answer)
+                    continue
+                ev = n.record.evidence or []
+                its = n.items
+                pick = [idx] if idx is not None else range(len(its))
+                out[f] = [
+                    {
+                        "spans": _spans(ev[k]) if k < len(ev) else [],
+                        "why": its[k].get("justification"),
+                        "said": _said(its[k]),
+                    }
+                    for k in pick
+                    if k < len(its)
+                ]
+            return out
+
         specimens = []
         for i, s in enumerate(ru.get("specimens", [])):
             spans = node_spans("specimen", "", i)
             for f in ("carcinoma_status", "histology", "dysplasia_status"):
                 spans += node_spans(f, s["path"])
-            specimens.append({**s, "spans": spans})
+            fe = field_evidence("specimen", i, s["path"], SPECIMEN_FIELD_NODE)
+            specimens.append({**s, "spans": spans, "field_evidence": fe})
         tests = []
         for i, t in enumerate(ru.get("tests", [])):
             spans = node_spans("ancillary_test", "", i) + node_spans(
                 "test_result", t["path"]
             )
-            tests.append({**t, "spans": spans})
+            fe = field_evidence("ancillary_test", i, t["path"], TEST_FIELD_NODE)
+            tests.append({**t, "spans": spans, "field_evidence": fe})
         views[doc_id] = {"specimens": specimens, "tests": tests}
     return views
+
+
+def _said(item: dict) -> str:
+    """One extraction for display: its attributes, without evidence/justification."""
+    return "; ".join(
+        f"{k}={v}"
+        for k, v in item.items()
+        if k not in ("evidence", "justification") and v not in (None, "", [])
+    )
 
 
 # ---------------------------------------------------------------- alignment
@@ -391,10 +496,14 @@ def review_rows(
 # ---------------------------------------------------------------- gold file
 
 
-def build_gold(records: list[dict], verdicts: dict[str, str]) -> dict[str, dict]:
-    """Gold per doc from draft records plus adjudicated cells {row_id: gold text}.
+def build_gold(
+    records: list[dict], verdicts: dict[str, object], added: list[dict] = ()
+) -> dict[str, dict]:
+    """Gold per doc from draft records plus adjudicated values {row_id: value}.
 
     A row without a verdict keeps the proposed (majority/consensus) answer.
+    A value is cell text (workbook) or a structured value (review app).
+    `added` holds items no model found: {doc_id, kind, key, spans, values}.
     """
     gold: dict[str, dict] = {}
     for r in records:
@@ -421,6 +530,14 @@ def build_gold(records: list[dict], verdicts: dict[str, str]) -> dict[str, dict]
             continue
         item = {"key": r["key"], "spans": [list(s) for s in r["spans"]], **vals}
         doc["specimens" if r["kind"] == "specimen" else "tests"].append(item)
+    for a in added:
+        doc = gold.setdefault(
+            a["doc_id"], {"doc_id": a["doc_id"], "specimens": [], "tests": []}
+        )
+        fields = SPECIMEN_FIELDS if a["kind"] == "specimen" else TEST_FIELDS
+        vals = {f: parse(f, a.get("values", {}).get(f)) for f in fields}
+        item = {"key": a["key"], "spans": [list(x) for x in a["spans"]], **vals}
+        doc["specimens" if a["kind"] == "specimen" else "tests"].append(item)
     for doc in gold.values():
         doc["report"] = report_summary(
             [
