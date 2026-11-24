@@ -1,8 +1,7 @@
-# Qwen3.8-27B (dense, BF16 ~56 GB), compose profile: qwen3.8-27b
+# Qwen3.8-27B (dense, BF16 ~56 GB)
 # Sources: huggingface.co/Qwen/Qwen3.8-27B, recipes.vllm.ai/Qwen/Qwen3.8-27B (checked 2026-11-06)
 name: qwen3.8-27b
 served_model_name: qwen3.8-27b
-base_url: http://llm:8000/v1   # compose network alias; override with --base-url / HNC_LLM_BASE_URL
 # Model-card thinking-mode sampling.
 temperature: 1.0
 top_p: 0.95

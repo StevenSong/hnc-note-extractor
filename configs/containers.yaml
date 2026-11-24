@@ -1,0 +1,11 @@
+# Container images, pre-pulled on every node by digest:
+#   docker pull <image>:<tag>@<digest>
+# Jobs never pull. They run the image by digest and refuse to start if a node lacks it.
+# The digest is the multi-arch index digest Docker Hub lists for the tag.
+
+# vLLM (OpenAI-compatible server). The 2026-11 smoke runs used this tag; the digest is
+# the one the cluster's other projects pre-pulled. Entry point: vllm serve.
+vllm:
+  image: vllm/vllm-openai
+  tag: v0.32.0
+  digest: sha256:befccf0e7e4089aa23926bb6f887a85c0d46c2a99e6de5c5ffdf5cb7957c5b34

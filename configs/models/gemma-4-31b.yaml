@@ -1,8 +1,7 @@
-# Google Gemma 4 31B IT (dense, BF16 ~62 GB), compose profile: gemma-4-31b
+# Google Gemma 4 31B IT (dense, BF16 ~62 GB)
 # Sources: huggingface.co/google/gemma-4-31B-it, vllm recipes Google/Gemma4.md (checked 2026-11-06)
 name: gemma-4-31b
 served_model_name: gemma-4-31b
-base_url: http://llm:8000/v1
 temperature: 1.0
 top_p: 0.95
 top_k: 64

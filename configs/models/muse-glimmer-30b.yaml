@@ -1,9 +1,8 @@
-# Meta Muse Glimmer 30B (dense, BF16 59.6 GB), compose profile: muse-glimmer-30b
+# Meta Muse Glimmer 30B (dense, BF16 59.6 GB)
 # Sources: huggingface.co/meta-models/Muse-Glimmer-30B, vllm recipes (checked 2026-11-06).
 # Hopper is not on the recipe's verified-hardware list.
 name: muse-glimmer-30b
 served_model_name: muse-glimmer-30b
-base_url: http://llm:8000/v1
 temperature: 1.0   # recipe: never greedy
 top_p: 0.95
 top_k: 64

@@ -13,6 +13,7 @@ import hashlib
 import json
 import os
 import sqlite3
+import sys
 from pathlib import Path
 
 from hnc_extract.extract import CallRecord
@@ -45,7 +46,14 @@ def call_key(
 
 
 class Store:
-    def __init__(self, path: Path):
+    def __init__(self, path: Path, readonly: bool = False):
+        if readonly:
+            # A finished run, e.g. published on read-only shared storage: no locks,
+            # no journal, never written.
+            self.db = sqlite3.connect(
+                f"{path.resolve().as_uri()}?mode=ro&immutable=1", uri=True
+            )
+            return
         path.parent.mkdir(parents=True, exist_ok=True)
         self.db = sqlite3.connect(path)
         self.db.execute("PRAGMA journal_mode=WAL")
@@ -58,13 +66,18 @@ class Store:
                 created_utc TEXT NOT NULL
             )""")
         self.db.commit()
-        # SQLite creates files as 0644 regardless of umask. The runner container
-        # runs as root, so open the cache to everyone (the -wal/-shm files copy
-        # this mode).
-        try:
-            os.chmod(path, 0o666)
-        except PermissionError:
-            pass
+
+    @staticmethod
+    def open_for_reading(path: Path) -> Store:
+        """Read-only (immutable) if the run dir isn't writable, e.g. a published run."""
+        if not path.exists():
+            sys.exit(f"{path} not found")
+        return Store(path, readonly=not os.access(path.parent, os.W_OK))
+
+    def finalize(self) -> None:
+        """Fold the WAL back into the file, so a copy of it alone is complete."""
+        self.db.execute("PRAGMA journal_mode=DELETE")
+        self.db.commit()
 
     def get(self, key: str) -> CallRecord | None:
         row = self.db.execute(

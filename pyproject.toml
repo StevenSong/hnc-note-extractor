@@ -6,6 +6,8 @@ build-backend = "setuptools.build_meta"
 name = "hnc-extract"
 version = "0.0.1"
 requires-python = ">=3.12"
+# Exact versions are in uv.lock; the bounds here are loose. vLLM is not installed here:
+# it runs as a pinned container (configs/containers.yaml).
 dependencies = [
     "httpx>=0.27",
     "openpyxl>=3.1",
@@ -13,8 +15,19 @@ dependencies = [
     "pyyaml>=6",
 ]
 
-[project.optional-dependencies]
-dev = ["pytest>=8"]
+[dependency-groups]
+test = ["pytest>=8"]  # jobs install it too
+dev = [{include-group = "test"}, "pre-commit"]
+
+[project.scripts]
+hnc_extract = "hnc_extract.cli:main"
+
+[tool.uv]
+required-version = "==0.13.7"  # keep in step with envs/install-uv.sh
+python-preference = "only-managed"  # same uv-built CPython on every node, never conda/system
+environments = [
+    "sys_platform == 'linux' and platform_machine == 'x86_64' and implementation_name == 'cpython'",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -25,3 +38,11 @@ hnc_extract = ["review_ui/*.html"]
 [tool.pytest.ini_options]
 pythonpath = ["src"]
 testpaths = ["tests"]
+addopts = "-m 'not gpu and not data'"  # a later -m replaces this
+markers = [
+    "gpu: needs Docker and one GPU; runs only when asked for with -m gpu",
+    "data: reads the mounted datasets or weights; runs with -m data",
+]
+
+[tool.isort]
+profile = "black"

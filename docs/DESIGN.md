@@ -2,8 +2,8 @@
 
 Status: proposal. Implemented so far: the synthetic ingest adapter (§2 [0]) and the
 **pathology vertical slice** (§9): field specs, DAG runner, LLM clients, evidence verifier,
-rollup, review workbook, and compose profiles. It has been tested offline with a mock model
-only. How to run it: docs/RUNNING.md.
+rollup, review workbook, gold-key tooling, and Slurm model jobs. Four models have run the
+20-report smoke set (2026-11-07). How to run it: docs/RUNNING.md.
 
 ## 0. Decisions log
 - 2026-11-06: Extractions are kept **separate per note**. **Both note-level and patient-level** outputs are banked.
@@ -13,6 +13,7 @@ only. How to run it: docs/RUNNING.md.
 - 2026-11-06: The target cluster is unknown, so **every model must fit on a single H200 (141 GB)**. The pipeline must run end-to-end on one GPU. Extra GPUs are only data-parallel replicas.
 - 2026-11-06: The user (MD/PhD candidate) does manual review, so review tooling should be clinician-friendly.
 - 2026-11-06: The current ingest is **synthetic-data-only**. Real data gets its own adapter that emits the same canonical `Document` JSONL.
+- 2026-11-24: Runs on the kg35 Slurm cluster follow its shared job pattern (docs/RUNNING.md): jobs run a pushed commit in a per-commit uv env; vLLM runs as a pinned image by digest via `docker run` (no compose, no runner container); weights are pre-pulled and checked by sha256; results are built on node-local disk and published once to shared storage.
  Earlier work in `src/` and `prompts/` is
 treated as disposable reference material.
 
@@ -174,10 +175,11 @@ Options:
 
 ## 6. Models and serving
 
-- vLLM OpenAI-compatible server in docker compose. There is **one compose profile per model**, so
-  only one model is served at a time. The pipeline runner is a separate container that talks HTTP
-  to the server. The LLM client is abstracted, so tests use a mock/replay client.
-- Each model gets a config: served name, vLLM args, recommended sampling, reasoning-effort
+- vLLM OpenAI-compatible server, a pinned image started by `hnc_extract job` (serving.py) for
+  the length of one Slurm job, on that job's GPU. One model per job. The pipeline runs in the
+  job's uv env and talks HTTP to the server. The LLM client is abstracted, so tests use a
+  mock/replay client.
+- Each model gets a config: served name, recommended sampling (configs/models/), vLLM args (configs/serving.yaml), reasoning-effort
   control, and whether JSON-schema-constrained decoding works alongside its reasoning parser. If
   it doesn't, the client falls back to parsing the output, validating with pydantic, and retrying
   with the error message.

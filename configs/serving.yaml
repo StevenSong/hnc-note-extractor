@@ -1,0 +1,68 @@
+# How `hnc_extract job` serves each model config (configs/models/<name>.yaml): the
+# weights entry (configs/weights.yaml), the container (configs/containers.yaml), and
+# `vllm serve` arguments after the model dir. serving.py adds the model dir,
+# --served-model-name (from the model config), --host/--port, and
+# --tensor-parallel-size (from CUDA_VISIBLE_DEVICES; every model here fits one H200).
+# Flags come from the vLLM recipes and model cards (checked 2026-11-06).
+
+# Recipe default with text-only mode; --mm-encoder-tp-mode is dropped because the recipe
+# says it is mutually exclusive with --language-model-only.
+qwen3.8-27b:
+  weights: qwen3.8-27b
+  container: vllm
+  serve_args:
+    - --reasoning-parser=qwen3
+    - --language-model-only
+    - --max-model-len=65536
+    - --gpu-memory-utilization=0.92
+
+# Recipe default. Hopper is not on its verified list. The recipe runs the tool parser
+# together with the reasoning parser, so both are kept.
+muse-glimmer-30b:
+  weights: muse-glimmer-30b
+  container: vllm
+  serve_args:
+    - --generation-config=auto
+    - --enable-auto-tool-choice
+    - --tool-call-parser=muse_glimmer
+    - --reasoning-parser=muse_glimmer
+    - --max-model-len=65536
+    - --gpu-memory-utilization=0.92
+
+# Recipe TP1 without the tool-calling template (no tools used); text-only.
+gemma-4-31b:
+  weights: gemma-4-31b
+  container: vllm
+  serve_args:
+    - --reasoning-parser=gemma4
+    - --language-model-only
+    - --max-model-len=65536
+    - --gpu-memory-utilization=0.92
+
+# NVIDIA cookbook "1x H200" command. Change the mamba/block/cudagraph flags only as a
+# set. Video flags dropped and text-only flags added per the cookbook.
+nemotron-3.5-super-nvfp4:
+  weights: nemotron-3.5-super-nvfp4
+  container: vllm
+  serve_args:
+    - --max-num-seqs=128
+    - --trust-remote-code
+    - --max-model-len=114688
+    - --gpu-memory-utilization=0.89
+    - --max-num-batched-tokens=16384
+    - --block-size=64
+    - --prefix-match-unit=64
+    - --compilation_config.max_cudagraph_capture_size=256
+    - --mamba-backend=flashinfer
+    - --mamba-ssm-cache-dtype=float16
+    - --enable-mamba-cache-stochastic-rounding
+    - --mamba-cache-philox-rounds=5
+    - --enable-mamba-shared-prefix-checkpoint
+    - --mamba-cache-mode=align
+    - --speculative-config.method=mtp
+    - --speculative-config.num_speculative_tokens=3
+    - --language-model-only
+    - --chat-template-content-format=string
+    - --enable-auto-tool-choice
+    - --tool-call-parser=qwen3_coder
+    - --reasoning-parser=nemotron_v3

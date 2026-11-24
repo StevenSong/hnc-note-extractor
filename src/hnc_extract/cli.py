@@ -10,6 +10,11 @@
   gold-import       adjudicated verdicts (review app or workbook) -> gold.jsonl
   score             compare a run against gold.jsonl
 
+Cluster jobs (hnc_extract.jobs; submit with slurm/submit.sh):
+  ingest-publish    ingest a dataset from HNC_DATA_ROOT, publish to HNC_SHARED_ROOT/ingested/
+  job               serve one model, then probe/run/status/export -> HNC_SHARED_ROOT/runs/
+  weights-pin       print sha256 pins for configs/weights.yaml
+
 A run dir holds one model's results for one document set:
   <run-dir>/run.json        settings (docs, specs, model config, doc filter)
   <run-dir>/cache.sqlite    every call, keyed by content (resumable)
@@ -167,7 +172,7 @@ def _traverse_all(run_dir: Path, specs_dir: Path | None = None):
     model = ModelConfig.model_validate(settings["model"])
     docs = _select_docs(settings)
     specs = load_specs(specs_dir or Path(settings["specs"]), _doc_type(docs))
-    store = Store(run_dir / "cache.sqlite")
+    store = Store.open_for_reading(run_dir / "cache.sqlite")
     nodes = {d.doc_id: traverse(d, specs, store, model.fingerprint()) for d in docs}
     store.close()
     return settings, model, docs, specs, nodes
@@ -639,6 +644,10 @@ def main(argv: list[str] | None = None) -> None:
     sp.add_argument("--specs", type=Path, default=Path("specs"))
     sp.add_argument("--base-url")
 
+    from hnc_extract.jobs import add_parsers
+
+    job_cmds = add_parsers(sub)
+
     a = p.parse_args(argv)
     if a.cmd == "ingest-synthetic":
         from hnc_extract.synthetic_ingest import main as ingest_main
@@ -654,6 +663,7 @@ def main(argv: list[str] | None = None) -> None:
             "gold-review": cmd_gold_review,
             "gold-import": cmd_gold_import,
             "score": cmd_score,
+            **job_cmds,
         }[a.cmd](a)
 
 
