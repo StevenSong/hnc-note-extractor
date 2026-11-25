@@ -184,7 +184,9 @@ def test_job_end_to_end_with_mock_server(tmp_path, monkeypatch):
 def test_ingest_publish_is_idempotent(tmp_path, monkeypatch):
     data = tmp_path / "data" / "ds"
     data.mkdir(parents=True)
-    monkeypatch.setattr(paths, "DATA_ROOT", tmp_path / "data")
+    reg = tmp_path / "datasets.yaml"
+    reg.write_text(f"ds: {{adapter: synthetic_tsv, source: {data}}}\n")
+    monkeypatch.setattr(paths, "DATASETS_FILE", reg)
     monkeypatch.setattr(paths, "SHARED_ROOT", tmp_path / "shared")
     monkeypatch.setattr(paths, "RUN_ROOT", tmp_path / "rr")
     src = REPO / "data" / "dev-test" / "pathology_report.tsv"

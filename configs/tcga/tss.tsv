@@ -1,0 +1,36 @@
+# source: https://gdc.cancer.gov/resources-tcga-users/tcga-code-tables/tissue-source-site-codes (retrieved 2026-11-25; python -m hnc_extract.tcga_refs)
+tss	source_site	study	bcr
+4P	Duke University	Head and Neck squamous cell carcinoma	NCH
+BA	UNC	Head and Neck squamous cell carcinoma	IGC
+BB	Johns Hopkins	Head and Neck squamous cell carcinoma	IGC
+C9	ILSBio	Head and Neck squamous cell carcinoma	NCH
+CN	University of Pittsburgh	Head and Neck squamous cell carcinoma	IGC
+CQ	University Health Network, Toronto	Head and Neck squamous cell carcinoma	IGC
+CR	Vanderbilt University	Head and Neck squamous cell carcinoma	IGC
+CV	MD Anderson Cancer Center	Head and Neck squamous cell carcinoma	IGC
+CX	Medical College of Georgia	Head and Neck squamous cell carcinoma	IGC
+D6	Greater Poland Cancer Center	Head and Neck squamous cell carcinoma	IGC
+DQ	University Of Michigan	Head and Neck squamous cell carcinoma	IGC
+F7	Asterand	Head and Neck squamous cell carcinoma	IGC
+H7	ABS - IUPUI	Head and Neck squamous cell carcinoma	IGC
+HD	International Genomics Consortium	Head and Neck squamous cell carcinoma	IGC
+HL	Fox Chase	Head and Neck squamous cell carcinoma	IGC
+IQ	University of Miami	Head and Neck squamous cell carcinoma	IGC
+JA	ABS - Research Metrics Pakistan	Head and Neck squamous cell carcinoma	IGC
+KU	Hartford	Head and Neck squamous cell carcinoma	IGC
+MT	University of Minnesota	Head and Neck squamous cell carcinoma	NCH
+MZ	Montefiore Medical Center	Head and Neck squamous cell carcinoma	NCH
+NM	Cambridge BioSource	Head and Neck squamous cell carcinoma	NCH
+P3	Fred Hutchinson	Head and Neck squamous cell carcinoma	NCH
+QK	Emory University - Winship Cancer Inst.	Head and Neck squamous cell carcinoma	NCH
+R7	Gundersen Lutheran Health System	Head and Neck squamous cell carcinoma	NCH
+RH	BLN - Baylor	Head and Neck squamous cell carcinoma	NCH
+RS	Memorial Sloan Kettering Cancer Center	Head and Neck squamous cell carcinoma	NCH
+ST	Global Bioclinical-Moldova	Head and Neck squamous cell carcinoma	NCH
+T2	St. University of Colorado Denver	Head and Neck squamous cell carcinoma	NCH
+T3	Molecular Response	Head and Neck squamous cell carcinoma	NCH
+TG	Global BioClinical - Georgia	Head and Neck squamous cell carcinoma	NCH
+TN	Ohio State University	Head and Neck squamous cell carcinoma	NCH
+UF	Barretos Cancer Hospital	Head and Neck squamous cell carcinoma	NCH
+UP	Boston Medical Center	Head and Neck squamous cell carcinoma	NCH
+WA	University of Schleswig-Holstein	Head and Neck squamous cell carcinoma	NCH

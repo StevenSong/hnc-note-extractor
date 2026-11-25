@@ -8,9 +8,8 @@ REPO_ROOT = Path(__file__).resolve().parents[2]
 # Committed configs (models, serving, weights, containers, eval sets).
 CONFIGS_DIR = REPO_ROOT / "configs"
 
-# Read-only dataset releases, one dir per dataset (e.g. dev-test50/ with the synthetic
-# TSVs). Only source files are read; locally derived files next to them are never used.
-DATA_ROOT = Path(os.environ.get("HNC_DATA_ROOT", "/opt/gpudata/hnc"))
+# Read-only source datasets (name -> adapter + source path) for ingest-publish.
+DATASETS_FILE = CONFIGS_DIR / "datasets.yaml"
 
 # Model weights, pre-pulled on every node (configs/weights.yaml). Jobs never download.
 MODELS_ROOT = Path(os.environ.get("HNC_MODELS_ROOT", "/opt/gpudata/models"))

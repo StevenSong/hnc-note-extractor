@@ -1,6 +1,7 @@
 """Command line entry point: python -m hnc_extract <command> ...
 
   ingest-synthetic  synthetic TSVs -> canonical document JSONL
+  ingest-tcga       TCGA_Reports.csv -> canonical document JSONL (TCGA-HNSC reports)
   run               run (or resume) the field DAG for one doc type with one model
   status            node counts per field/status for a run dir
   export            JSONL + review workbook for a run dir
@@ -11,7 +12,7 @@
   score             compare a run against gold.jsonl
 
 Cluster jobs (hnc_extract.jobs; submit with slurm/submit.sh):
-  ingest-publish    ingest a dataset from HNC_DATA_ROOT, publish to HNC_SHARED_ROOT/ingested/
+  ingest-publish    ingest a dataset of configs/datasets.yaml, publish to HNC_SHARED_ROOT/ingested/
   job               serve one model, then probe/run/status/export -> HNC_SHARED_ROOT/runs/
   weights-pin       print sha256 pins for configs/weights.yaml
 
@@ -545,6 +546,8 @@ def main(argv: list[str] | None = None) -> None:
 
     sp = sub.add_parser("ingest-synthetic", help="see hnc_extract.synthetic_ingest")
     sp.add_argument("rest", nargs=argparse.REMAINDER)
+    sp = sub.add_parser("ingest-tcga", help="see hnc_extract.tcga_ingest")
+    sp.add_argument("rest", nargs=argparse.REMAINDER)
 
     sp = sub.add_parser("run")
     sp.add_argument("--run-dir", type=Path, required=True)
@@ -653,6 +656,10 @@ def main(argv: list[str] | None = None) -> None:
         from hnc_extract.synthetic_ingest import main as ingest_main
 
         ingest_main(a.rest)
+    elif a.cmd == "ingest-tcga":
+        from hnc_extract.tcga_ingest import main as tcga_main
+
+        tcga_main(a.rest)
     else:
         {
             "run": cmd_run,

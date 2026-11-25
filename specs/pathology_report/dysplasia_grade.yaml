@@ -1,5 +1,5 @@
 name: dysplasia_grade
-version: 2
+version: 3
 doc_type: pathology_report
 kind: attribute
 order: 70
@@ -37,7 +37,7 @@ categories:
   high_grade: Stated as high-grade (e.g. high-grade dysplasia, HSIL).
   other: A stated grade or degree word that fits none of the above (e.g. "indefinite for dysplasia", "VIN 2", "markedly").
 examples:
-  - excerpt: "B. Left lateral tongue; biopsy: - Squamous mucosa with mild to moderate dysplasia. - Negative for invasive carcinoma."
+  - excerpt: "B. Left lateral tongue; biopsy: - Surface epithelium with mild to moderate dysplasia. - No invasion identified."
     target: 'ONE specimen: "Left lateral tongue; biopsy" (label=B). Already extracted: dysplasia_status: positive'
     output:
       extractions:

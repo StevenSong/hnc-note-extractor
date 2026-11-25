@@ -1,0 +1,14 @@
+# Source datasets for `hnc_extract ingest-publish <name>`. Sources are read-only and on
+# every node; ingest-publish writes HNC_SHARED_ROOT/ingested/<name>/.
+#   adapter synthetic_tsv: source is a dir of <doc_type>.tsv (hnc_extract.synthetic_ingest)
+#   adapter tcga_reports:  source is TCGA_Reports.csv (hnc_extract.tcga_ingest); the
+#                          HNSC case and site tables are committed in configs/tcga/
+dev-test:
+  adapter: synthetic_tsv
+  source: /opt/gpudata/hnc/dev-test
+dev-test50:
+  adapter: synthetic_tsv
+  source: /opt/gpudata/hnc/dev-test50
+tcga-hnsc:
+  adapter: tcga_reports
+  source: /opt/gpudata/cancer/tcga/reports/TCGA_Reports.csv

@@ -7,7 +7,7 @@ and publishes the result to shared storage once, at the end.
 
 | What | Where (env override) |
 |---|---|
-| Synthetic source TSVs, read-only | `/opt/gpudata/hnc/<dataset>/` (`HNC_DATA_ROOT`) |
+| Source datasets, read-only (name -> adapter + path) | `configs/datasets.yaml`: synthetic TSVs in `/opt/gpudata/hnc/<dataset>/`, TCGA reports in `/opt/gpudata/cancer/tcga/reports/TCGA_Reports.csv` |
 | Model weights, pre-pulled, never downloaded | `/opt/gpudata/models/<org>/<repo>` (`HNC_MODELS_ROOT`) |
 | Published documents, runs, job logs | `/shared/gpudata/songs1/hnc-shared/` (`HNC_SHARED_ROOT`) |
 | Node-local run root: commit clones, uv cache, work dirs, vLLM compile cache | `~/hnc-run/` (`HNC_RUN_ROOT`) |
@@ -20,19 +20,29 @@ if its node lacks the image or a weight file differs.
 
 ```bash
 # a) Data and weights in place on every node (jobs only read them)
-#    /opt/gpudata/hnc/dev-test50/{pathology_report,progress_note,radiology_report}.tsv
+#    every source in configs/datasets.yaml, e.g. /opt/gpudata/cancer/tcga/reports/TCGA_Reports.csv
 #    hf download <repo> --local-dir /opt/gpudata/models/<repo>   for each repo in configs/weights.yaml
 docker pull vllm/vllm-openai:v0.32.0@sha256:befccf0e...   # full digest in configs/containers.yaml
 
 # b) Pin the weights: prints a files: block per model; paste it into configs/weights.yaml, commit
 slurm/submit.sh --cpus-per-task=16 -- hnc_extract weights-pin qwen3.8-27b
 
-# c) Ingest and publish the documents -> $HNC_SHARED_ROOT/ingested/dev-test50/
+# c) Ingest and publish the documents -> $HNC_SHARED_ROOT/ingested/<dataset>/
+slurm/submit.sh --cpus-per-task=4 -- hnc_extract ingest-publish tcga-hnsc
 slurm/submit.sh --cpus-per-task=4 -- hnc_extract ingest-publish dev-test50
 ```
 
-`ingest-publish` is idempotent: with unchanged inputs it does nothing, and with changed
-inputs it refuses (runs point at the published files) unless `--overwrite`.
+`ingest-publish` is idempotent: with unchanged inputs (source file hashes, reference
+tables, adapter version) it does nothing, and with changed inputs it refuses (runs point
+at the published files) unless `--overwrite`.
+
+`tcga-hnsc` keeps the 505 TCGA-HNSC hospital pathology reports of TCGA_Reports.csv (one
+per patient), 39 of them English translations (`meta.translated`). It drops the 13
+Asterand (F7) biobank abstract forms and the 2 Molecular Response (T3) procurement forms
+(listed in the manifest). The HNSC case list and site codes are committed in
+`configs/tcga/`; `python -m hnc_extract.tcga_refs` regenerates them from the GDC (needs
+internet, never run by jobs). The text is verbatim OCR in which line breaks became ". ",
+and the reports carry no dates.
 
 ## 1. Model jobs
 
@@ -87,6 +97,7 @@ compose-era `hnc-smoke-*` projects and the `hnc-runner:local` image.
 ```bash
 uv sync                                  # dev env from uv.lock (pinned uv: envs/install-uv.sh)
 uv run python -m hnc_extract ingest-synthetic data/dev-test50        # -> data/ingested/dev-test50/
+uv run python -m hnc_extract ingest-tcga /opt/gpudata/cancer/tcga/reports/TCGA_Reports.csv  # -> data/ingested/tcga-hnsc/
 uv run python -m hnc_extract run --run-dir runs/mock --docs data/ingested/dev-test50/pathology_report.jsonl \
     --model configs/models/mock.yaml --doc-ids-file configs/eval/path-smoke.txt
 uv run pytest

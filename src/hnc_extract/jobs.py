@@ -3,7 +3,7 @@
 Both build on node-local disk (paths.RUN_ROOT/work/) and publish to shared storage
 (paths.SHARED_ROOT) once, at the end (publish.py).
 
-  ingest-publish <dataset>   DATA_ROOT/<dataset>/*.tsv -> SHARED_ROOT/ingested/<dataset>/
+  ingest-publish <dataset>   configs/datasets.yaml source -> SHARED_ROOT/ingested/<dataset>/
   job --model <name> ...     serve the model (serving.py) on the job's GPU, then
                              probe, run, status, export -> SHARED_ROOT/runs/<run-name>/
 
@@ -67,21 +67,51 @@ def shared_path(p: Path) -> Path:
 # ---- ingest-publish ----------------------------------------------------------------------
 
 
-def cmd_ingest_publish(a: argparse.Namespace) -> None:
-    from hnc_extract.synthetic_ingest import ingest_dataset
+def load_dataset(name: str) -> dict:
+    import yaml
 
-    src = paths.DATA_ROOT / a.dataset
+    datasets = yaml.safe_load(paths.DATASETS_FILE.read_text())
+    if name not in datasets:
+        sys.exit(
+            f"unknown dataset {name!r}; known: {sorted(datasets)} ({paths.DATASETS_FILE})"
+        )
+    return datasets[name]
+
+
+def _ingest(adapter: str, src: Path, out: Path) -> dict:
+    if adapter == "synthetic_tsv":
+        from hnc_extract.synthetic_ingest import ingest_dataset
+
+        return ingest_dataset(src, out)
+    if adapter == "tcga_reports":
+        from hnc_extract.tcga_ingest import ingest_csv
+
+        return ingest_csv(src, out)
+    sys.exit(f"unknown adapter {adapter!r}")
+
+
+def _inputs(m: dict) -> dict:
+    """What a published ingest was made from: adapter version, source and reference
+    file hashes. Equal inputs give equal documents."""
+    return {
+        "adapter": m["adapter"],
+        "files": {t: s["input_sha256"] for t, s in m["files"].items()},
+        "references": m.get("references", {}),
+    }
+
+
+def cmd_ingest_publish(a: argparse.Namespace) -> None:
+    ds = load_dataset(a.dataset)
+    src = Path(ds["source"])
     dest = paths.SHARED_ROOT / "ingested" / a.dataset
-    if not src.is_dir():
-        sys.exit(f"{src} not found (HNC_DATA_ROOT={paths.DATA_ROOT})")
+    if not src.exists():
+        sys.exit(f"{src} not found ({paths.DATASETS_FILE}: {a.dataset})")
     out = _work_dir() / "ingested" / a.dataset
     shutil.rmtree(out, ignore_errors=True)
-    m = ingest_dataset(src, out)
-    inputs = {t: s["input_sha256"] for t, s in m["files"].items()}
+    m = _ingest(ds["adapter"], src, out)
     old = dest / "manifest.json"
     if old.is_file() and not a.overwrite:
-        prev = json.loads(old.read_text())
-        if {t: s["input_sha256"] for t, s in prev["files"].items()} == inputs:
+        if _inputs(json.loads(old.read_text())) == _inputs(m):
             print(f"{dest} already holds these inputs; nothing to do")
             shutil.rmtree(out)
             return
@@ -245,9 +275,9 @@ def cmd_weights_pin(a: argparse.Namespace) -> None:
 def add_parsers(sub: argparse._SubParsersAction) -> dict:
     sp = sub.add_parser(
         "ingest-publish",
-        help="ingest a synthetic dataset from HNC_DATA_ROOT and publish it to shared storage",
+        help="ingest a dataset of configs/datasets.yaml and publish it to shared storage",
     )
-    sp.add_argument("dataset", help="dir name under HNC_DATA_ROOT, e.g. dev-test50")
+    sp.add_argument("dataset", help="name in configs/datasets.yaml, e.g. tcga-hnsc")
     sp.add_argument("--overwrite", action="store_true")
 
     sp = sub.add_parser(

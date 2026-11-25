@@ -1,5 +1,5 @@
 name: histology
-version: 2
+version: 3
 doc_type: pathology_report
 kind: attribute
 order: 40
@@ -59,14 +59,14 @@ examples:
           differentiation: null
           described_as_metastatic: "no"
       summary: Single histology; no differentiation stated.
-  - excerpt: "B. Left neck level II, dissection: - Metastatic squamous cell carcinoma, poorly differentiated, in 2 of 14 lymph nodes (2/14); largest deposit 1.8 cm; extranodal extension present."
-    target: 'ONE specimen: "Left neck level II, dissection" (label=B). Already extracted: carcinoma_status: positive'
+  - excerpt: "B. Left level II neck contents, excision: - Poorly differentiated metastatic squamous cell carcinoma, present in 2 of 13 nodes (2/13); largest deposit 1.8 cm; extranodal extension present."
+    target: 'ONE specimen: "Left level II neck contents, excision" (label=B). Already extracted: carcinoma_status: positive'
     output:
       extractions:
-        - evidence: ["Metastatic squamous cell carcinoma, poorly differentiated"]
+        - evidence: ["Poorly differentiated metastatic squamous cell carcinoma"]
           justification: Nodal metastasis of SCC, differentiation stated.
           assertion: affirmed
-          value: "Metastatic squamous cell carcinoma"
+          value: "metastatic squamous cell carcinoma"
           invasion: invasive
           differentiation: "poorly differentiated"
           described_as_metastatic: "yes"

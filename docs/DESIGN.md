@@ -44,6 +44,9 @@ provenance.
 - `synthetic_ingest.py` (synthetic only): HTML unescape (repeated until stable) and drop empty rows.
   No dedup and no row merging, because `Order_proc_id` is unreliable in the synthetic data. Output goes
   to `data/ingested/<dataset>/` with a manifest. The originals are only read.
+- `tcga_ingest.py` (TCGA-HNSC reports of TCGA_Reports.csv): text verbatim, no dates. Keeps the
+  hospital reports, tags translations, drops biobank abstract and procurement forms by tissue
+  source site (`configs/tcga/`). GDC labels go to `meta.gdc` for stratifying only.
 - **Anchor date** per document (progress: date of service; radiology: exam time; pathology: result
   time). Relative-time expressions are resolved against it.
 - Identical texts remain separate documents but share `text_sha256`, so the extraction cache runs
@@ -234,7 +237,7 @@ Code is in `src/hnc_extract/`:
 | `rollup.py` | Deterministic report-level rollup. |
 | `export.py` | Long JSONL plus `review.xlsx` (README / review / reports / documents). |
 | `mock.py` | Regex stand-in model for offline tests. Its output is not data. |
-| `cli.py` | Commands: `run`, `status`, `export`, `probe`, `ingest-synthetic`. |
+| `cli.py` | Commands: `run`, `status`, `export`, `probe`, `ingest-synthetic`, `ingest-tcga`, gold and job commands. |
 
 The spec format (`specs/<doc_type>/<field>.yaml`) has these keys:
 - `kind`: entity or attribute.
