@@ -1,0 +1,17 @@
+# Qwen3.5-27B (dense VL, BF16 ~52 GB). Stand-in for Qwen3.8-27B while the 3.8 weights are
+# not on the node; same family, parser and sampling, so the smoke plumbing is comparable.
+# Source: the model card in the pulled weights (README.md, checked 2026-11-25)
+name: qwen3.5-27b
+served_model_name: qwen3.5-27b
+# Model-card thinking-mode sampling for general tasks, without its presence_penalty 1.5:
+# it penalizes tokens already generated, and quotes and JSON keys must repeat verbatim.
+temperature: 1.0
+top_p: 0.95
+top_k: 20
+min_p: 0.0
+max_tokens: 49152   # as qwen3.8-27b: max-model-len 65536 leaves ~16k for the prompt
+reasoning:
+  # Thinking is on by default and has no effort levels (only enable_thinking: false).
+  chat_template_kwargs: {enable_thinking: true}
+# vLLM lists the qwen3 reasoning parser as supporting json structured outputs.
+structured_output: json_schema

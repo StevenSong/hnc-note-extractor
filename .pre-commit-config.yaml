@@ -9,6 +9,8 @@ repos:
     hooks:
       - id: detect-secrets
         args: ['--baseline', '.secrets.baseline']
+        # sha256 pins of public weight files: high-entropy hex by design, not secrets
+        exclude: ^configs/weights\.yaml$
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:

@@ -16,6 +16,16 @@ qwen3.8-27b:
     - --max-model-len=65536
     - --gpu-memory-utilization=0.92
 
+# Same flags as qwen3.8-27b (same architecture family and parser).
+qwen3.5-27b:
+  weights: qwen3.5-27b
+  container: vllm
+  serve_args:
+    - --reasoning-parser=qwen3
+    - --language-model-only
+    - --max-model-len=65536
+    - --gpu-memory-utilization=0.92
+
 # Recipe default. Hopper is not on its verified list. The recipe runs the tool parser
 # together with the reasoning parser, so both are kept.
 muse-glimmer-30b:
