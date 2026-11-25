@@ -228,3 +228,5 @@ temp.*
 temp_*
 temp-*
 temp/
+
+.vscode
