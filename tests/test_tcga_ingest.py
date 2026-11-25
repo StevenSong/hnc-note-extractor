@@ -141,3 +141,17 @@ def test_committed_refs_cover_the_real_csv(tmp_path):
         "procurement_form": 2,
         "empty_text": 0,
     }
+
+
+def test_tcga_eval_sets():
+    """The smoke set is a subset of the dev set; with the ingested data present, every
+    id exists there."""
+    from hnc_extract.cli import read_doc_ids_file
+
+    dev = read_doc_ids_file(REPO / "configs/eval/tcga-dev.txt")
+    smoke = read_doc_ids_file(REPO / "configs/eval/tcga-smoke.txt")
+    assert len(dev) == 50 and set(smoke) <= set(dev)
+    docs = REPO / "data/ingested/tcga-hnsc/pathology_report.jsonl"
+    if not docs.is_file():
+        pytest.skip("no ingested TCGA data in this checkout")
+    assert set(dev) <= {d.doc_id for d in read_jsonl(docs)}

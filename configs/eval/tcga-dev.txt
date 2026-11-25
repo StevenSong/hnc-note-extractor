@@ -1,0 +1,73 @@
+# TCGA-HNSC pathology dev set: 50 reports from ingested/tcga-hnsc/pathology_report.jsonl
+# (hnc_extract.tcga_ingest; real hospital reports, OCR text, line breaks became ". ").
+# One doc id per line; text after '#' is ignored. configs/eval/tcga-smoke.txt is an
+# 18-report subset for the fast loop and the first gold pass.
+#
+# Drawn 2026-11-25 with a fixed seed from the 505 reports: 6 translated (D6 3, UF 2, WA 1),
+# then 44 English: one per tissue source site (22 sites, since each hospital has its own
+# template), quotas by regex (EGFR >= 3, biopsy-only >= 8, p16 >= 12, dysplasia >= 10,
+# addendum >= 8, in situ >= 6), every GDC primary site once, then filled by site share.
+# Every report was read in full; none was excluded. "robustness" marks OCR or translation
+# damage that real data has too: keep it, but score it apart if it dominates the errors.
+# No report mentions PD-L1 (pre-2014 cases), so pdl1_score is not evaluated here.
+# None of them may supply spec example text (tests/test_spec_examples.py).
+#
+# Ancillary tests (p16, HPV, EGFR, c-MET)
+TCGA-CN-4731.84c373fc-95b4-429a-92c1-c96fc474589d  # 11 parts + frozen; p16 IHC neg, HPV ISH neg, EGFR/c-MET FISH neg; "EGFR." listed with no result; severe dysplasia vs frozen benign vs comment "moderate"; CIS; ENE
+TCGA-CN-4733.6890cdd4-a7f4-464b-a866-ed8948e93392  # p16 neg, EGFR IHC 2+, HPV ISH (pan probe) neg, EGFR FISH positive by polysomy, c-MET FISH neg; addendum printed first; heavy l/i OCR swaps
+TCGA-CN-5359.7c62f575-521a-4dc2-a8fa-3e722d989427  # robustness: left-margin OCR truncation ("MOR PRESENT"); EGFR IHC pos vs FISH neg; a third "Negative" with no test name; CORRECTED report
+TCGA-HL-7533.2b99c03f-bfc5-47aa-bbd4-76b82e813280  # 2 soft palate biopsies; HR-HPV 16/18 ISH positive in an addendum, "(block B3)" -> part B only
+TCGA-MZ-A6I9.B1FAEB6C-8B5E-43CE-8FD7-F467C700A2EC  # p16 IHC positive in a comment for grouped parts "2 and 4"; parts 1 and 3 research-only, no diagnosis; ISH boilerplate, no ISH done
+TCGA-RS-A6TP.F170BB49-FA71-4247-AFA7-F841A348B171  # radical tonsillectomy, non-keratinizing, CIS; addendum p16 strong/diffuse + HR-HPV ISH positive; detached atypical fragment is not suspicious
+TCGA-CN-A49C.D63CFB90-036A-45D7-B27C-AA306B034673  # tonsil biopsy, non-keratinizing; theranostic summary p16 IHC pos + HPV ISH pos (punctate); comment still says "will be performed"
+TCGA-QK-A6IF.7E5C541A-F493-4A86-9B02-D1CCBC4B0E22  # 2 tonsil biopsies; p16 IHC strong pos and HPV ISH pos in a comment headed "A." (A only or both?)
+TCGA-BA-A6DI.16D4CB9A-268D-416C-B9EC-685050C49BE8  # vocal cord biopsy + node 0/1; p16/HPV "pending" then addendum p16 IHC neg, HR-HPV ISH neg; REVISED
+TCGA-BB-7866.efc508ee-e176-4502-99e4-0cc774f7f9de  # 1 part; "HPV RELATED" SCC; p16 IHC strongly immunoreactive, HR-HPV ISH punctate; no grade/keratinization (don't infer)
+TCGA-BB-A6UM.CE88FA18-1E39-4D55-AD46-7F3213236050  # 2 tonsils; "HPV RELATED" SCC, "positive for p16 and HPV16" with no method (method null); "highly suspicious" LVI
+TCGA-4P-AA8J.A1DC1F44-7E95-4C05-BDE4-B0658FAC37D7  # 20 parts (A-T, A-H frozen), "RIGHT LEVEL 2A" twice; keratinizing; p16 IHC neg (block I5); margins/levels labeled "(BIOPSY)"
+TCGA-TN-A7HL.BED776A5-936A-468C-B469-EF9FB12109D1  # 13 parts listed, final diagnosis unlabeled; "HPV-Associated" SCC with no p16/HPV result in the report; CAP template with every pT/pN option
+#
+# Dysplasia, CIS and frozen vs final
+TCGA-H7-A6C4.AEC9F6D0-E697-47C8-9654-F0EF52454EF8  # 16 parts; frozen vs final: low-grade->moderate dysplasia (A), "CIS cannot be excluded"->SCC (C), mild dysplasia dropped (G); keratinizing; transected deep margin
+TCGA-BA-5153.6509b8c4-7507-47f8-8758-129f873ba2e7  # tonsil + 6 frozen margins; FSD1 frozen negative, permanent "consistent with invasive"; "dysplastic epithelium in stroma" is invasion; CIS
+TCGA-MT-A67F.38F89B3D-B228-4108-A454-FCA719E8DC6A  # robustness: text starts mid-gross (rotated pages); 15 parts; focal severe dysplasia (A), ungraded dysplasia (G, N); keratinizing; template says "Oropharynx"
+TCGA-CV-7254.c094c14c-2781-439d-ba5e-310996f8dc0f  # 11 parts, legacy format, some letters missing; "NEW C"/"NEW F" re-excisions; ungraded "Dysplastic epithelium" (J); "GRADE III"
+TCGA-CQ-6221.02a91b3c-99ce-472f-8ad4-fb511aaea80c  # combined "1-2" diagnosis: spindle cell (sarcomatoid) variant + conventional SCC; ungraded dysplasia; "consistent with high-grade spindle cell neoplasm"
+TCGA-CQ-7072.75642D9B-7F8C-4E99-A19C-B610D21BFACD  # robustness: part numbers OCR-damaged ("5." twice); CIS; grade conflict (diagnosis moderate vs synoptic G3); addendum adds bone invasion
+TCGA-QK-A6IH.EA914F6B-55C2-47C0-BB9F-196B2C17685F  # 13 parts; "NEGATIVE FOR HIGH GRADE DYSPLASIA" x5; frozen "atypical focus" -> granulomatous; special stains (GMS, PAS, AFB, AE1/3) on nodes
+TCGA-T2-A6WX.CD4DD699-70AC-4ECC-A1A1-18C0BFB3A648  # three primaries (G, H, I) + verrucous carcinoma focus in I; CIS at a margin; verrucous hyperplasia at margins; "lymph node" part with no node
+TCGA-UF-A71E.881A6334-4EEE-4468-AD5A-5F3E83C911EB  # translated (Portuguese): basaloid SCC, foci of CIS, no grade; mistranslated part names ("Shared of right miloioide muscle")
+#
+# Many parts, nodes, addenda (enumeration and linkage)
+TCGA-IQ-A61O.487F8B9D-D7BE-441D-BC73-551372A3E558  # longest (17.7k), 35 parts A-II; spindle cell SCC; label Q lost at a page break; "IHC results to follow" never given; margin given three ways
+TCGA-CV-A6JO.D3CFA752-7E1E-43D0-8F08-0760BDB65F08  # 22 parts, inline "FS/DX"; 10/51 nodes with ENE; amended (specimen O); T "atypical epithelial nests" negative on levels
+TCGA-CN-A49A.38A7951F-DDA7-4F2E-BF50-976459D3048C  # 15 parts, maxillectomy; "KERATIZING" [sic]; 0/59 nodes; pterygoid muscle "BIOPSY" positive although margins free
+TCGA-CN-6995.2bbcb266-75f2-4f85-a251-3e6a2a020293  # 12 parts, part 3 sub-items A-F are bullets not specimens; keratinizing; "SUFFICIENT FOR ANCILLARY STUDIES" + CLIA boilerplate, no tests
+TCGA-DQ-5629.285e6994-b0b9-41e9-9d52-2505ad047c74  # 15 parts, grouped "4-5" and frozen "3-7. Negative"; 2 positive nodes; history gives clinical T4N2CM0
+TCGA-QK-A8ZB.778AC64D-1AC5-4F43-AF14-DB670D34E3EB  # 9 parts, laryngectomy, 0/81 nodes; keratinization not stated ("keratinaceous debris" decoy); CIS-margin template line
+TCGA-CQ-A4CD.7D4BC5FE-771F-47A7-AAAF-65CE4F13E874  # part 3 lists "(0/47)", the total of parts 1+2+4 (double-count trap); addendum confirms bone invasion
+TCGA-P3-A5Q6.47C78D8F-581E-4C91-AD2A-6C00F6EF5128  # grouped "A-D, H", label H reused; F "suspicious for carcinoma" (frozen: cannot rule out); addendum corrects node counts
+TCGA-UP-A6WW.5CFD2D42-23D5-4561-9031-E1F79BC1B29E  # 13 parts; site conflict (tonsil history, BOT specimen, oral template); part sums 13/52 vs synoptic 14/53; no p16
+TCGA-CX-7082.872be720-140a-4152-84ce-184d1a2cdfe7  # robustness: garbled repeated page headers; 12 parts; "Keratinizing dysplasia. Moderate." not tied to a part; keratinizing SCC
+TCGA-CV-7414.7fe41351-5375-423b-bec6-6c90058ef85b  # robustness: scrambled order, L-Q first, P/Q repeated empty; "SQUAMOUS CELL CARCINOMA OF SALIVARY GLAND"; CIS "invasion cannot be ruled out"; mucicarmine
+TCGA-CV-A468.2EF86B2F-6058-411A-A225-DF282C36A7BC  # legacy import: supplemental first, A/F/I unlabeled in the diagnosis; keratinized SCC; 0.6 mm node deposit
+TCGA-CV-A45U.1AF4D20D-572C-434F-B235-053B66AAD3FE  # 4 parts, (D) label missing; supplemental "margin free" (bone) vs positive mucosal margin; well differentiated
+TCGA-CV-5434.0661b7b0-e677-469b-88c9-0c3e0e250d82  # unlabeled diagnosis by site (A-C only in gross); supplemental turns "PROBABLY" cartilage into invading
+TCGA-BA-4074.21249ff8-a752-46e6-82d9-ecaf7f025afc  # 13 parts + frozen; vallecula part benign lymphoid (history mentions a lesion there); bilateral ENE; LVI "not definitively identified"
+TCGA-KU-A66T.88CDCF70-52E1-4EF2-83B3-98ED4A8FB7DC  # 3 parts; cT and pT both stated; CPT codes (88311, 88331) are not tests; keratinizing
+TCGA-CR-7382.2909e68d-2518-40db-9288-f21c1d44a779  # clean control: 6 parts, 8/83 nodes, no dysplasia/keratinization/tests; neck dissections called "EXCISION"
+TCGA-CV-7421.e463d3a6-b87b-44ba-a8ec-306d82cdd9c0  # legacy, (A) label lost, nodes inside B unlabeled; supplemental says "CARCINOMA" without squamous; "Eleven" then 6+3+2
+TCGA-CV-7437.8d2c5741-ed13-4aba-8a62-ad928f223d08  # 1 part laryngectomy; supplemental printed first resolves "pending decalcification"
+TCGA-CV-6003.6ae06a67-bac0-4884-a7a8-aca62cc81074  # 5 parts; frozen "FAVOR SQUAMOUS CELL CARCINOMA"; subcapsular micrometastasis 1/16; tooth part gross only
+#
+# Short biopsies and controls
+TCGA-CR-6482.86631a72-6bae-424f-b38f-528e30f7f652  # tonsil biopsy, basaloid, no p16/HPV (no tests should be extracted)
+TCGA-CN-6012.d754c784-4d68-4d19-9ef8-000fb4575201  # 1 larynx biopsy; CLIA boilerplate mentions ISH/FISH/molecular, no tests done
+TCGA-HD-7229.5a33b240-07a7-4bbd-8a0b-15f106ba183e  # robustness: 3 biopsies, final diagnosis unlabeled (letters only in OR consult/gross), truncated gross; biopsy-margin wording
+#
+# Translated (meta.translated)
+TCGA-D6-6823.c4cc6a5a-5de3-4ae0-afbe-22ee499d2322  # Polish: "partim keratodes" (partially keratinizing); quotes the prior biopsy; mistranslated "carcinoma of the skin" (site is tongue)
+TCGA-D6-6825.fbbeeae7-cd3f-481e-b093-3b5518155e88  # Polish: Latin "keratodes invasivum G2"; one sentence left untranslated; extra unlabeled fragment
+TCGA-D6-8569.efeb49ca-c5ae-4b11-9504-4ca818a0b582  # Polish, preliminary ("final reply ... after full material"); intraop "1-4" frozen parts never described
+TCGA-UF-A7JV.14508F82-2D39-47A5-858E-99F3DEE97C33  # Portuguese: labels 1,2,3,5,5; second malignancy (papillary thyroid carcinoma); "without capsular involvement" = no ENE
+TCGA-WA-A7GZ.79B28528-E6A5-494D-96EF-FBF7DAC748FD  # German: parts 8-9 only (1-7 in another report); keratinizing; translation OCR ("cpithelium Hercunder")

@@ -51,15 +51,15 @@ Model names: `qwen3.8-27b`, `muse-glimmer-30b`, `gemma-4-31b`, `nemotron-3.5-sup
 Commit and push first: `slurm/submit.sh` refuses a dirty tree or an unpushed HEAD.
 
 ```bash
-slurm/smoke.sh                          # all four on the pinned 20-report set, one GPU each
+slurm/smoke.sh                          # all four on the 18 TCGA smoke reports, one GPU each
 slurm/smoke.sh gemma-4-31b              # or a subset
 
-# Any run, e.g. all 220 reports with one model:
+# Any run, e.g. all 505 TCGA reports with one model:
 slurm/submit.sh --gres=gpu:1 -- hnc_extract job --model qwen3.8-27b \
-    --docs ingested/dev-test50/pathology_report.jsonl --run-name full/{model}-j{job}
+    --docs ingested/tcga-hnsc/pathology_report.jsonl --run-name full/{model}-j{job}
 # Continue a published run (failed step, new fields): cached calls are reused
 slurm/submit.sh --gres=gpu:1 -- hnc_extract job --model qwen3.8-27b \
-    --docs ingested/dev-test50/pathology_report.jsonl --run-name full/qwen3.8-27b-j123 --resume
+    --docs ingested/tcga-hnsc/pathology_report.jsonl --run-name full/qwen3.8-27b-j123 --resume
 squeue --me
 ```
 
@@ -78,9 +78,11 @@ add `-w kg35-nvl01` to watch one live). A run is published even when a step fail
 `--resume` can continue it. Published runs are read-only: `status`, `gold-draft` and
 `score` open them in place (the cache read-only, without locks).
 
-`--doc-ids-file` / `--limit` select documents as for `run`. The smoke set
-`configs/eval/path-smoke.txt` lists each report with what it exercises. When you change
-it, read the reports you add. `tests/test_spec_examples.py` fails if a spec example
+`--doc-ids-file` / `--limit` select documents as for `run`. The eval sets in
+`configs/eval/` list each report with what it exercises: `tcga-dev.txt` (50 real
+TCGA-HNSC reports, stratified by site), its 18-report subset `tcga-smoke.txt` (the
+`smoke.sh` default), and the synthetic `path-smoke.txt`. When you change one,
+read the reports you add. `tests/test_spec_examples.py` fails if a spec example
 shares an 8-word run with any ingested report (wording found in 5 or more reports counts
 as boilerplate), so the examples can't leak answers for the reports we score.
 
@@ -100,6 +102,7 @@ uv run python -m hnc_extract ingest-synthetic data/dev-test50        # -> data/i
 uv run python -m hnc_extract ingest-tcga /opt/gpudata/cancer/tcga/reports/TCGA_Reports.csv  # -> data/ingested/tcga-hnsc/
 uv run python -m hnc_extract run --run-dir runs/mock --docs data/ingested/dev-test50/pathology_report.jsonl \
     --model configs/models/mock.yaml --doc-ids-file configs/eval/path-smoke.txt
+# TCGA: --docs data/ingested/tcga-hnsc/pathology_report.jsonl --doc-ids-file configs/eval/tcga-smoke.txt
 uv run pytest
 ```
 

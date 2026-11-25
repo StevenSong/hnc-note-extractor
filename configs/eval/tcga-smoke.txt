@@ -1,0 +1,31 @@
+# TCGA-HNSC smoke set: 18 of the 50 reports in configs/eval/tcga-dev.txt (notes there).
+# Docs: ingested/tcga-hnsc/pathology_report.jsonl. Default of slurm/smoke.sh. ~100k chars.
+# Picked for coverage per report: p16/HPV by IHC and ISH (and with no method), EGFR/c-MET
+# FISH, dysplasia grades and frozen-vs-final changes, CIS, variant histology, many parts,
+# addenda, a translated report and two controls with nothing ancillary to extract.
+#
+# Ancillary tests
+TCGA-CN-4731.84c373fc-95b4-429a-92c1-c96fc474589d  # 11 parts + frozen; p16 IHC neg, HPV ISH neg, EGFR/c-MET FISH neg; "EGFR." listed with no result; severe dysplasia vs frozen benign vs comment "moderate"; CIS; ENE
+TCGA-HL-7533.2b99c03f-bfc5-47aa-bbd4-76b82e813280  # 2 soft palate biopsies; HR-HPV 16/18 ISH positive in an addendum, "(block B3)" -> part B only
+TCGA-MZ-A6I9.B1FAEB6C-8B5E-43CE-8FD7-F467C700A2EC  # p16 IHC positive in a comment for grouped parts "2 and 4"; parts 1 and 3 research-only, no diagnosis; ISH boilerplate, no ISH done
+TCGA-RS-A6TP.F170BB49-FA71-4247-AFA7-F841A348B171  # radical tonsillectomy, non-keratinizing, CIS; addendum p16 strong/diffuse + HR-HPV ISH positive; detached atypical fragment is not suspicious
+TCGA-CN-A49C.D63CFB90-036A-45D7-B27C-AA306B034673  # tonsil biopsy, non-keratinizing; theranostic summary p16 IHC pos + HPV ISH pos (punctate); comment still says "will be performed"
+TCGA-BA-A6DI.16D4CB9A-268D-416C-B9EC-685050C49BE8  # vocal cord biopsy + node 0/1; p16/HPV "pending" then addendum p16 IHC neg, HR-HPV ISH neg; REVISED
+TCGA-BB-A6UM.CE88FA18-1E39-4D55-AD46-7F3213236050  # 2 tonsils; "HPV RELATED" SCC, "positive for p16 and HPV16" with no method (method null); "highly suspicious" LVI
+TCGA-4P-AA8J.A1DC1F44-7E95-4C05-BDE4-B0658FAC37D7  # 20 parts (A-T, A-H frozen), "RIGHT LEVEL 2A" twice; keratinizing; p16 IHC neg (block I5); margins/levels labeled "(BIOPSY)"
+#
+# Dysplasia, CIS, frozen vs final, variants
+TCGA-H7-A6C4.AEC9F6D0-E697-47C8-9654-F0EF52454EF8  # 16 parts; frozen vs final: low-grade->moderate dysplasia (A), "CIS cannot be excluded"->SCC (C), mild dysplasia dropped (G); keratinizing; transected deep margin
+TCGA-BA-5153.6509b8c4-7507-47f8-8758-129f873ba2e7  # tonsil + 6 frozen margins; FSD1 frozen negative, permanent "consistent with invasive"; "dysplastic epithelium in stroma" is invasion; CIS
+TCGA-CQ-6221.02a91b3c-99ce-472f-8ad4-fb511aaea80c  # combined "1-2" diagnosis: spindle cell (sarcomatoid) variant + conventional SCC; ungraded dysplasia; "consistent with high-grade spindle cell neoplasm"
+TCGA-CQ-7072.75642D9B-7F8C-4E99-A19C-B610D21BFACD  # robustness: part numbers OCR-damaged ("5." twice); CIS; grade conflict (diagnosis moderate vs synoptic G3); addendum adds bone invasion
+TCGA-T2-A6WX.CD4DD699-70AC-4ECC-A1A1-18C0BFB3A648  # three primaries (G, H, I) + verrucous carcinoma focus in I; CIS at a margin; verrucous hyperplasia at margins; "lymph node" part with no node
+TCGA-UF-A71E.881A6334-4EEE-4468-AD5A-5F3E83C911EB  # translated (Portuguese): basaloid SCC, foci of CIS, no grade; mistranslated part names ("Shared of right miloioide muscle")
+#
+# Enumeration and linkage
+TCGA-CQ-A4CD.7D4BC5FE-771F-47A7-AAAF-65CE4F13E874  # part 3 lists "(0/47)", the total of parts 1+2+4 (double-count trap); addendum confirms bone invasion
+TCGA-P3-A5Q6.47C78D8F-581E-4C91-AD2A-6C00F6EF5128  # grouped "A-D, H", label H reused; F "suspicious for carcinoma" (frozen: cannot rule out); addendum corrects node counts
+#
+# Controls
+TCGA-CR-7382.2909e68d-2518-40db-9288-f21c1d44a779  # clean control: 6 parts, 8/83 nodes, no dysplasia/keratinization/tests; neck dissections called "EXCISION"
+TCGA-CR-6482.86631a72-6bae-424f-b38f-528e30f7f652  # tonsil biopsy, basaloid, no p16/HPV (no tests should be extracted)
