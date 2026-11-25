@@ -15,8 +15,11 @@
 #
 # Slurm doesn't confine jobs, so --cpus-per-task is the job's CPU share only by
 # agreement. Default 72: a GPU's even share of a node (the default for model jobs).
+# Every job runs on kg35-nvl02: the project's datasets are staged there, and it hosts the
+# dev container, which sees that node's run root. Pass -w <node> to override.
 #SBATCH --output=/tmp/hnc-%j.out
 #SBATCH --cpus-per-task=72
+#SBATCH --nodelist=kg35-nvl02
 set -euo pipefail
 
 usage="usage: job.sh <commit-sha> <repo-url> <command> [args...]"

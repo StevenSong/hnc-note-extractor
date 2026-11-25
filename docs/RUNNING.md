@@ -73,8 +73,8 @@ server, and publishes `$HNC_SHARED_ROOT/runs/<run-name>/`:
 - `logs/server.log`: the vLLM log.
 
 The job's full log is `$HNC_SHARED_ROOT/logs/<jobid>.out` once it ends; while it runs, on
-`~/hnc-run/logs/<jobid>.out` of its node (in the dev container only for jobs on nvl01:
-add `-w kg35-nvl01` to watch one live). A run is published even when a step failed, so
+`~/hnc-run/logs/<jobid>.out` of its node (jobs run on kg35-nvl02 by default, the dev
+container's node, so the container sees the live log). A run is published even when a step failed, so
 `--resume` can continue it. Published runs are read-only: `status`, `gold-draft` and
 `score` open them in place (the cache read-only, without locks).
 

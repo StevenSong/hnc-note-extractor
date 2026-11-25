@@ -1,13 +1,13 @@
 #!/usr/bin/env bash
-# Hold GPUs for the dev container, which runs on kg35-nvl01 and has no Slurm client. Submit
-# by hand from nvl01's host shell; scancel the job to give the GPUs back.
+# Hold GPUs for the dev container, which runs on kg35-nvl02 and has no Slurm client. Submit
+# by hand from nvl02's host shell; scancel the job to give the GPUs back.
 #
 #   sbatch slurm/dev-gpu.sh     (1 GPU for 8 hours; override with --gres / --time)
 #
 # The lease ~/hnc-run/dev-gpu/<job-id> names the GPUs by UUID for slurm/with-gpu.sh;
 # touched every minute and removed on exit, so a dead job's lease goes stale.
 #SBATCH --job-name=dev-gpu
-#SBATCH --nodelist=kg35-nvl01
+#SBATCH --nodelist=kg35-nvl02
 #SBATCH --gres=gpu:1
 #SBATCH --time=8:00:00
 #SBATCH --cpus-per-task=16
