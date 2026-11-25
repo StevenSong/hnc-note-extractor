@@ -23,7 +23,7 @@ dev = [{include-group = "test"}, "pre-commit"]
 hnc_extract = "hnc_extract.cli:main"
 
 [tool.uv]
-required-version = "==0.13.7"  # keep in step with envs/install-uv.sh
+required-version = "==0.13.9"  # keep in step with envs/install-uv.sh
 python-preference = "only-managed"  # same uv-built CPython on every node, never conda/system
 environments = [
     "sys_platform == 'linux' and platform_machine == 'x86_64' and implementation_name == 'cpython'",

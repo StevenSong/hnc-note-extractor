@@ -8,9 +8,9 @@
 # dir already reports the pinned version. Prints the path of the uv binary.
 set -euo pipefail
 
-version=0.13.7
+version=0.13.9
 target=uv-x86_64-unknown-linux-gnu
-sha256=c5221ff41b7892bfc223543883600125f6a47fe845093e0f5bdff4f359196d83
+sha256=a7fbaff2b9a271d85c1bdb540941090fd1ce011797b4abeb48e4dcd39c2471d5
 
 dest=${UV_INSTALL_DIR:-$HOME/.local/bin}
 if [[ -x $dest/uv ]] && [[ $("$dest/uv" --version) == "uv $version "* ]]; then
